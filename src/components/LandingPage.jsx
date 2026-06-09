@@ -28,9 +28,9 @@ function LandingPage() {
       description: 'Role-based access for Admin, Staff, and Customers with granular permissions.'
     },
     {
-      icon: '🤖',
-      title: 'AI Assistant',
-      description: 'Get instant answers about stock availability and business insights with Gemini AI.'
+      icon: '📱',
+      title: 'Works Offline',
+      description: 'Install the app and manage inventory with your own local database — no internet required.'
     },
     {
       icon: '💳',
@@ -110,7 +110,7 @@ function LandingPage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-500/10 border border-blue-500/20 rounded-full mb-6 sm:mb-8 animate-pulse">
             <span className="w-2 h-2 bg-green-400 rounded-full animate-ping" style={{ animationDuration: '2s' }} />
-            <span className="text-blue-300 text-xs sm:text-sm font-medium">Now with AI-Powered Insights</span>
+            <span className="text-blue-300 text-xs sm:text-sm font-medium">Works Offline — Install as App</span>
           </div>
 
           {/* Main Heading */}

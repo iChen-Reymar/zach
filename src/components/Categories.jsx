@@ -4,7 +4,6 @@ import Layout from './Layout'
 import AddCategoryModal from './AddCategoryModal'
 import { useAuth } from '../contexts/AuthContext'
 import { categoryService } from '../services/categoryService'
-import { supabase } from '../lib/supabase'
 
 function Categories() {
   const navigate = useNavigate()
@@ -26,36 +25,10 @@ function Categories() {
       const { data, error } = await categoryService.getAllCategories()
       if (error) throw error
       
-      // Recalculate item counts for each category based on actual products
       if (data && data.length > 0) {
-        const updatedCategories = await Promise.all(
-          data.map(async (category) => {
-            try {
-              // Count products in this category
-              const { count } = await supabase
-                .from('products')
-                .select('*', { count: 'exact', head: true })
-                .eq('category_id', category.id)
-              
-              return {
-                ...category,
-                item_count: count || 0
-              }
-            } catch (err) {
-              console.error(`Error counting products for category ${category.id}:`, err)
-              return category
-            }
-          })
-        )
-        
-        // Update categories in database with correct counts
-        await Promise.all(
-          updatedCategories.map(cat => 
-            categoryService.updateItemCount(cat.id, cat.item_count)
-          )
-        )
-        
-        setCategories(updatedCategories)
+        await categoryService.recalculateAllItemCounts()
+        const { data: refreshed } = await categoryService.getAllCategories()
+        setCategories(refreshed || data)
       } else {
         setCategories(data || [])
       }

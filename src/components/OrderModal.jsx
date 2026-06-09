@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
 import { productService } from '../services/productService'
 import { orderService } from '../services/orderService'
 import { authService } from '../services/authService'
+import { customerService } from '../services/customerService'
 import { useAuth } from '../contexts/AuthContext'
 
 function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
@@ -64,175 +64,35 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
   }
 
   const fetchCustomer = async () => {
-    if (!user?.id) {
-      console.log('No user ID available')
-      return
-    }
-    
+    if (!user?.id) return
+
     try {
-      console.log('Fetching customer for user_id:', user.id, 'email:', user.email) // Debug
-      setError('') // Clear previous errors
-      
+      setError('')
       let data = null
-      let foundBy = null
-      
-      // Strategy 1: Try by user_id first
-      if (user.id) {
-        const { data: userIdData, error: userIdError } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        
-        console.log('Customer fetch by user_id:', { data: userIdData, error: userIdError })
-        
-        if (userIdData && !userIdError) {
-          data = userIdData
-          foundBy = 'user_id'
-        }
+
+      const byUserId = await customerService.getCustomerByUserId(user.id)
+      if (byUserId.data) {
+        data = byUserId.data
       }
-      
-      // Strategy 2: If not found, try by email (case-insensitive)
+
       if (!data && user.email) {
-        const emailToSearch = user.email.trim().toLowerCase()
-        const { data: emailData, error: emailError } = await supabase
-          .from('customers')
-          .select('*')
-          .ilike('email', emailToSearch)
-          .maybeSingle()
-        
-        console.log('Customer fetch by email:', { data: emailData, error: emailError, searchedEmail: emailToSearch })
-        
-        if (emailData && !emailError) {
-          data = emailData
-          foundBy = 'email'
-          
-          // If found by email but user_id is missing or different, update it
+        const byEmail = await customerService.searchCustomerByEmail(user.email)
+        if (byEmail.data) {
+          data = byEmail.data
           if (!data.user_id || data.user_id !== user.id) {
-            console.log('Linking customer to user_id. Current user_id:', data.user_id, 'New user_id:', user.id)
-            const { error: updateError } = await supabase
-              .from('customers')
-              .update({ user_id: user.id })
-              .eq('id', data.id)
-            
-            if (updateError) {
-              console.warn('Could not update user_id (may not have permission):', updateError)
-              // Continue anyway - customer data is still valid
-            } else {
-              console.log('Successfully linked customer to user_id')
-              data.user_id = user.id
-            }
-          }
-        }
-      }
-      
-      // Strategy 3: Try exact email match (in case ilike doesn't work)
-      if (!data && user.email) {
-        const emailVariations = [
-          user.email.trim().toLowerCase(),
-          user.email.trim(),
-          user.email.toLowerCase(),
-          user.email
-        ]
-        
-        for (const emailVar of emailVariations) {
-          if (data) break
-          
-          const { data: exactEmailData, error: exactEmailError } = await supabase
-            .from('customers')
-            .select('*')
-            .eq('email', emailVar)
-            .maybeSingle()
-          
-          console.log(`Strategy 3 - Customer fetch by exact email ("${emailVar}"):`, { 
-            found: !!exactEmailData, 
-            error: exactEmailError 
-          })
-          
-          if (exactEmailData && !exactEmailError) {
-            data = exactEmailData
-            foundBy = `exact_email_${emailVar}`
-            break
-          }
-        }
-        
-        // Link user_id if found
-        if (data && (!data.user_id || data.user_id !== user.id)) {
-          const { error: updateError } = await supabase
-            .from('customers')
-            .update({ user_id: user.id })
-            .eq('id', data.id)
-          
-          if (!updateError) {
-            data.user_id = user.id
-          }
-        }
-      }
-      
-      // Strategy 4: Last resort - try to get all customers and filter client-side
-      // This might work if RLS allows the user to see customers (e.g., if they're admin/staff)
-      // or if there's a policy that allows it
-      if (!data) {
-        console.log('Strategy 4 - Trying to fetch all customers and filter client-side...')
-        try {
-          const { data: allCustomers, error: allError } = await supabase
-            .from('customers')
-            .select('*')
-          
-          console.log('All customers fetch result:', { 
-            count: allCustomers?.length, 
-            error: allError,
-            hasData: !!allCustomers
-          })
-          
-          if (allCustomers && !allError && allCustomers.length > 0) {
-            // Filter by email (case-insensitive) or user_id
-            const normalizedUserEmail = user.email?.trim().toLowerCase()
-            const found = allCustomers.find(c => {
-              const customerEmail = c.email?.trim().toLowerCase()
-              return customerEmail === normalizedUserEmail || c.user_id === user.id
+            const { data: updated } = await customerService.updateCustomer(data.id, {
+              user_id: user.id
             })
-            
-            if (found) {
-              console.log('✅ Found customer in all customers list:', found)
-              data = found
-              foundBy = 'client_side_filter'
-              
-              // Try to link user_id
-              if (!data.user_id || data.user_id !== user.id) {
-                const { error: updateError } = await supabase
-                  .from('customers')
-                  .update({ user_id: user.id })
-                  .eq('id', data.id)
-                
-                if (!updateError) {
-                  console.log('✅ Linked user_id via client-side filter')
-                  data.user_id = user.id
-                } else {
-                  console.warn('⚠️ Could not link user_id:', updateError)
-                }
-              }
-            } else {
-              console.log('Customer not found in all customers list. Available emails:', 
-                allCustomers.map(c => c.email))
-            }
-          } else if (allError) {
-            console.warn('Could not fetch all customers (RLS may be blocking):', allError)
+            if (updated) data = updated
           }
-        } catch (fallbackErr) {
-          console.warn('Fallback strategy failed:', fallbackErr)
         }
       }
-      
-      // If still not found, show error
+
       if (!data) {
-        console.error('❌ Customer not found by any method. User ID:', user.id, 'Email:', user.email)
         setCustomer(null)
-        setError('Customer record not found. The customer record may exist but is not linked to your account. Please contact an admin to link your customer account or run the SQL script to link customers.')
+        setError('Customer record not found. Please contact an admin to set up your customer account.')
         return
       }
-      
-      console.log('Customer found by:', foundBy, 'Data:', data)
       
       // Check if customer is approved (case-insensitive, handle various formats)
       const statusRaw = (data.status || '').toString()
@@ -240,7 +100,6 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
       console.log('Customer status check:', {
         raw: statusRaw,
         normalized: status,
-        foundBy: foundBy,
         customerData: data
       })
       

@@ -1,108 +1,141 @@
-import { supabase } from '../lib/supabase'
+import {
+  localDatabase,
+  hashPassword,
+  verifyPassword,
+  generateId
+} from './localDatabase'
+
+const generateMaskedCustomerId = () =>
+  '********-' + Math.random().toString(36).substring(2, 6).toUpperCase()
 
 export const authService = {
-  // Sign up a new user
   async signUp(email, password, name) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-          role: 'Customer'
-        }
-      }
-    })
-    return { data, error }
-  },
-
-  // Sign in an existing user
-  async signIn(email, password) {
     try {
-      // Trim email to remove whitespace
-      const trimmedEmail = email.trim().toLowerCase()
-      
-      console.log('Calling Supabase signInWithPassword...') // Debug
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password: password
+      const normalizedEmail = email.trim().toLowerCase()
+
+      if (!normalizedEmail || !password || !name) {
+        return { data: null, error: { message: 'Name, email, and password are required' } }
+      }
+
+      const existing = await localDatabase.getUserByEmail(normalizedEmail)
+      if (existing) {
+        return { data: null, error: { message: 'An account with this email already exists' } }
+      }
+
+      const userCount = await localDatabase.countUsers()
+      const isFirstUser = userCount === 0
+      const role = isFirstUser ? 'Admin' : 'Customer'
+
+      const { passwordHash, salt } = await hashPassword(password)
+      const user = await localDatabase.createUser({
+        email: normalizedEmail,
+        passwordHash,
+        salt
       })
-      
-      console.log('Supabase response - data:', data, 'error:', error) // Debug
-      
-      if (error) {
-        console.error('Supabase auth error:', error) // Debug
-        // Return error with better structure
-        return { 
-          data: null, 
-          error: {
-            message: error.message || 'Invalid login credentials',
-            status: error.status,
-            code: error.code || 'auth_error'
-          }
-        }
+
+      const profile = {
+        id: user.id,
+        name: name.trim(),
+        email: normalizedEmail,
+        role,
+        balance: 0,
+        created_at: new Date().toISOString()
       }
-      
-      if (!data || !data.user) {
-        console.error('No user data in Supabase response') // Debug
-        return { 
-          data: null, 
-          error: { message: 'Authentication failed - no user data returned' } 
-        }
+      await localDatabase.saveProfile(profile)
+
+      if (role === 'Customer') {
+        await localDatabase.saveCustomer({
+          id: generateId(),
+          customer_id: generateMaskedCustomerId(),
+          name: profile.name,
+          email: profile.email,
+          role: 'Customer',
+          user_id: user.id,
+          status: 'pending',
+          approved_by: null,
+          approved_at: null,
+          created_at: new Date().toISOString()
+        })
       }
-      
-      return { data, error: null }
+
+      await localDatabase.setSessionUserId(user.id)
+
+      return {
+        data: {
+          user: { id: user.id, email: user.email },
+          profile
+        },
+        error: null
+      }
     } catch (err) {
-      console.error('Exception in signIn:', err) // Debug
-      return { 
-        data: null, 
-        error: { message: err.message || 'An unexpected error occurred' } 
-      }
+      return { data: null, error: { message: err.message || 'Failed to create account' } }
     }
   },
 
-  // Sign out
+  async signIn(email, password) {
+    try {
+      const normalizedEmail = email.trim().toLowerCase()
+      const user = await localDatabase.getUserByEmail(normalizedEmail)
+
+      if (!user) {
+        return { data: null, error: { message: 'Invalid email or password' } }
+      }
+
+      const valid = await verifyPassword(password, user.passwordHash, user.salt)
+      if (!valid) {
+        return { data: null, error: { message: 'Invalid email or password' } }
+      }
+
+      await localDatabase.setSessionUserId(user.id)
+
+      return {
+        data: { user: { id: user.id, email: user.email } },
+        error: null
+      }
+    } catch (err) {
+      return { data: null, error: { message: err.message || 'An unexpected error occurred' } }
+    }
+  },
+
   async signOut() {
-    const { error } = await supabase.auth.signOut()
-    return { error }
+    await localDatabase.setSessionUserId(null)
+    return { error: null }
   },
 
-  // Get current user
   async getCurrentUser() {
-    const { data: { user } } = await supabase.auth.getUser()
-    return user
+    const userId = await localDatabase.getSessionUserId()
+    if (!userId) return null
+
+    const user = await localDatabase.getUserById(userId)
+    if (!user) {
+      await localDatabase.setSessionUserId(null)
+      return null
+    }
+
+    return { id: user.id, email: user.email }
   },
 
-  // Get user profile
   async getUserProfile(userId) {
     try {
-      // First try to get own profile (most common case)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-      
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error)
+      const profile = await localDatabase.getProfile(userId)
+      if (!profile) {
+        return { data: null, error: { message: 'Profile not found' } }
       }
-      
-      return { data, error }
+      return { data: profile, error: null }
     } catch (err) {
-      console.error('Exception in getUserProfile:', err)
       return { data: null, error: err }
     }
   },
 
-  // Update user profile
   async updateProfile(userId, updates) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single()
-    return { data, error }
+    try {
+      const data = await localDatabase.updateProfile(userId, updates)
+      if (!data) {
+        return { data: null, error: { message: 'Profile not found' } }
+      }
+      return { data, error: null }
+    } catch (err) {
+      return { data: null, error: err }
+    }
   }
 }
-

@@ -1,52 +1,33 @@
 # Inventory.oc - Inventory Management System
 
-A modern inventory management system built with React, Vite, and Supabase, featuring a complete dashboard for managing products, categories, staff, and customers.
+A modern, offline-first inventory management system built with React and Vite. All data and accounts are stored locally in the browser using IndexedDB — no cloud backend required.
 
 ## Features
 
-- **Authentication**: Signup and Login with Supabase Auth
+- **Local Authentication**: Sign up and log in with accounts stored on this device
+- **First User = Admin**: The first account created on a device gets full admin access
 - **Dashboard**: Home page with stock numbers, top categories, and orders
 - **Product Management**: Add, view, and manage products with stock tracking
 - **Category Management**: Organize products by categories
 - **Staff Management**: Manage staff members with roles
-- **Customer Management**: Track customers with email search
-- **Settings**: User profile and permission management
-- **Responsive Design**: Works on desktop and mobile devices
-- **Modern UI**: Clean white and blue color scheme with Tailwind CSS
-- **Progressive Web App (PWA)**: Installable as an app on any device
-- **Offline Support**: Basic caching and offline functionality
+- **Customer Management**: Track customers with approval workflow
+- **Settings**: User profile and install-as-app options
+- **Progressive Web App (PWA)**: Installable on desktop and mobile
+- **Offline Support**: Works without internet after initial load (use production build)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ installed
-- A Supabase account (free tier works)
+- Node.js 18+
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Inventory.co
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up Supabase**
-   - Follow the instructions in `SUPABASE_SETUP.md`
-   - Create a `.env` file with your Supabase credentials:
-     ```
-     VITE_SUPABASE_URL=your_project_url
-     VITE_SUPABASE_ANON_KEY=your_anon_key
-     ```
-
-4. **Run the database schema**
-   - Go to Supabase SQL Editor
-   - Run the SQL from `database/schema.sql`
+```bash
+git clone <repository-url>
+cd Inventory.co
+npm install
+```
 
 ### Development
 
@@ -56,17 +37,16 @@ npm run dev
 
 The app will be available at `http://localhost:5173`
 
-### Build
+> **Note:** Offline mode requires a production build. `npm run dev` needs the Vite dev server and does not work offline.
+
+### Build & Preview (for offline/PWA testing)
 
 ```bash
 npm run build
-```
-
-### Preview Production Build
-
-```bash
 npm run preview
 ```
+
+Open `http://localhost:4173`, load the app once while online, then you can use it offline.
 
 ## Project Structure
 
@@ -74,76 +54,44 @@ npm run preview
 Inventory.co/
 ├── src/
 │   ├── components/          # React components
-│   │   ├── Layout.jsx       # Main layout with sidebar
-│   │   ├── Home.jsx         # Dashboard home page
-│   │   ├── Products.jsx     # Products management
-│   │   ├── Categories.jsx   # Categories management
-│   │   ├── Staffs.jsx       # Staff management
-│   │   ├── Customers.jsx    # Customer management
-│   │   ├── Settings.jsx     # User settings
-│   │   ├── Login.jsx       # Login form
-│   │   ├── Signup.jsx      # Signup form
-│   │   └── Add*Modal.jsx   # Modal components
-│   ├── lib/
-│   │   └── supabase.js     # Supabase client configuration
-│   ├── services/           # Database service functions
+│   ├── contexts/            # Auth context
+│   ├── hooks/               # PWA install hook
+│   ├── services/
+│   │   ├── localDatabase.js # IndexedDB layer
 │   │   ├── authService.js
 │   │   ├── productService.js
 │   │   ├── categoryService.js
 │   │   ├── staffService.js
 │   │   ├── customerService.js
 │   │   └── orderService.js
-│   ├── App.jsx             # Main app with routing
-│   ├── main.jsx            # React entry point
-│   └── index.css           # Global styles
-├── database/
-│   ├── schema.sql          # Database schema
-│   └── README.md          # Database documentation
+│   ├── App.jsx
+│   └── main.jsx
 ├── public/
-│   └── images/            # Product images
-├── index.html              # HTML template
-├── vite.config.js         # Vite configuration
-├── tailwind.config.js     # Tailwind configuration
-└── package.json           # Dependencies
+│   ├── icons/               # PWA icons
+│   └── manifest.json
+└── vite.config.js           # Vite + PWA plugin
 ```
 
 ## Technologies Used
 
 - **React 18** - UI framework
 - **Vite** - Build tool
+- **vite-plugin-pwa** - Service worker and offline caching
 - **React Router** - Routing
 - **Tailwind CSS** - Styling
-- **Supabase** - Backend (Database + Auth)
-- **PostgreSQL** - Database (via Supabase)
+- **IndexedDB** - Local database (via `localDatabase.js`)
 
-## Database Schema
+## Data Storage
 
-The database includes the following tables:
-- `profiles` - User profiles
-- `categories` - Product categories
-- `products` - Inventory products
-- `staff` - Staff members
-- `customers` - Customer accounts
-- `orders` - Customer orders
-
-See `database/schema.sql` for complete schema details.
-
-## Environment Variables
-
-Create a `.env` file in the root directory:
-
-```
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+| Topic | Detail |
+|-------|--------|
+| **Where data lives** | Browser IndexedDB on this device |
+| **Sync** | No cloud sync between devices |
+| **Admin setup** | Create the first account on each device |
+| **Clearing browser data** | Deletes all inventory data |
 
 ## Security
 
-- Row Level Security (RLS) enabled on all tables
+- Passwords hashed with SHA-256 + salt (Web Crypto API)
 - Role-based access control (Admin, Staff, Customer)
-- Secure authentication via Supabase Auth
-- Environment variables for sensitive data
-
-
-
-
+- Session stored in IndexedDB meta store

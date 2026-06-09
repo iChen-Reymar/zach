@@ -1,7 +1,8 @@
 {
+  "id": "/",
   "name": "Inventory.co - Inventory Management System",
   "short_name": "Inventory.co",
-  "description": "A powerful inventory management system for managing products, categories, staff, and customers",
+  "description": "Offline inventory management with local accounts and database. Manage products, categories, staff, and customers without internet.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1e293b",

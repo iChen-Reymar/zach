@@ -5,6 +5,7 @@ import CashInModal from './CashInModal'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
 import { customerService } from '../services/customerService'
+import InstallApp from './InstallApp'
 
 function Settings() {
   const { user, profile, isAdmin } = useAuth()
@@ -283,6 +284,12 @@ function Settings() {
         {success && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
             {success}
+          </div>
+        )}
+
+        {!isViewingOtherUser && (
+          <div className="mb-4 sm:mb-6">
+            <InstallApp variant="card" />
           </div>
         )}
 

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 function Signup({ onToggle }) {
   const navigate = useNavigate()
-  const { signUp, signOut } = useAuth()
+  const { signUp } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,26 +35,10 @@ function Signup({ onToggle }) {
         return
       }
       
-      // Sign out the user if they were automatically signed in
-      // This ensures they must log in manually
-      try {
-        await signOut()
-      } catch (signOutError) {
-        console.warn('Error signing out after signup:', signOutError)
-      }
-      
-      // Show success message on signup page
-      setSuccess('Your account has been created successfully! You will be redirected to the login page.')
-      
-      // Wait 2 seconds to show success message, then redirect to login
+      setSuccess('Your account has been created! Redirecting to your dashboard...')
       setTimeout(() => {
-        navigate('/login', { 
-          state: { 
-            email: formData.email 
-          },
-          replace: true
-        })
-      }, 2000)
+        navigate('/home', { replace: true })
+      }, 1500)
     } catch (err) {
       setError('An unexpected error occurred')
       console.error('Signup error:', err)
@@ -138,7 +122,7 @@ function Signup({ onToggle }) {
         <div className="flex-1 p-6 sm:p-12 md:p-16 flex flex-col justify-center bg-primary-blue text-white">
           <div className="flex flex-col items-center text-center">
             <p className="text-base sm:text-lg leading-relaxed mb-6 sm:mb-8 text-white">
-              To keep connect with us please log in with your personal info
+              Your account is stored locally on this device. The first account created becomes the Admin.
             </p>
             <button
               onClick={onToggle}

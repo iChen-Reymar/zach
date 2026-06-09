@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import NotificationDropdown from './NotificationDropdown'
-import ChatbotModal from './ChatbotModal'
 import { productService } from '../services/productService'
 import { customerService } from '../services/customerService'
 import { categoryService } from '../services/categoryService'
@@ -14,7 +13,6 @@ function Layout({ children, pageTitle = 'home' }) {
   const { signOut, isAdmin, isStaff, profile } = useAuth()
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [notificationCount, setNotificationCount] = useState(0)
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   
@@ -543,24 +541,6 @@ function Layout({ children, pageTitle = 'home' }) {
         </main>
       </div>
 
-      {/* Chatbot Modal */}
-      <ChatbotModal
-        isOpen={isChatbotOpen}
-        onClose={() => setIsChatbotOpen(false)}
-      />
-
-      {/* Floating Chatbot Button */}
-      {!isChatbotOpen && (
-        <button
-          onClick={() => setIsChatbotOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-primary-blue to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center justify-center z-40"
-          title="AI Assistant"
-        >
-          <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-          </svg>
-        </button>
-      )}
     </div>
   )
 }

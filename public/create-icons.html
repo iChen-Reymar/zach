@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate PWA Icons</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #4a90e2; }
+        .upload-area {
+            border: 2px dashed #4a90e2;
+            padding: 40px;
+            text-align: center;
+            border-radius: 10px;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .upload-area:hover { background: #f0f7ff; }
+        input[type="file"] { display: none; }
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover { background: #357abd; }
+        .preview { margin: 20px 0; }
+        .preview img { max-width: 200px; margin: 10px; border: 1px solid #ddd; }
+        .status { margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Generate PWA Icons</h1>
+        <p>Upload your app icon image (App.jpeg) to generate all required PWA icon sizes.</p>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p>📁 Click to select App.jpeg</p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+        
+        <div id="preview" class="preview"></div>
+        
+        <button onclick="generateIcons()">Generate All Icons</button>
+        <button onclick="downloadAll()">Download All Icons</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        let sourceImage = null;
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const generatedIcons = {};
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    sourceImage = new Image();
+                    sourceImage.onload = function() {
+                        document.getElementById('preview').innerHTML = 
+                            `<h3>Preview:</h3><img src="${event.target.result}" style="max-width: 300px;">`;
+                        document.getElementById('status').innerHTML = 
+                            `<div class="status info">✅ Image loaded! Ready to generate icons.</div>`;
+                    };
+                    sourceImage.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function generateIcons() {
+            if (!sourceImage) {
+                alert('Please select an image first!');
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            sizes.forEach(size => {
+                canvas.width = size;
+                canvas.height = size;
+                
+                // Draw white background (for transparency)
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, size, size);
+                
+                // Draw image centered and scaled
+                const scale = Math.min(size / sourceImage.width, size / sourceImage.height);
+                const x = (size - sourceImage.width * scale) / 2;
+                const y = (size - sourceImage.height * scale) / 2;
+                ctx.drawImage(sourceImage, x, y, sourceImage.width * scale, sourceImage.height * scale);
+                
+                // Convert to blob
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    generatedIcons[size] = { blob, url };
+                    
+                    // Show preview
+                    const preview = document.getElementById('preview');
+                    if (!preview.querySelector(`#icon-${size}`)) {
+                        const img = document.createElement('img');
+                        img.id = `icon-${size}`;
+                        img.src = url;
+                        img.title = `${size}x${size}`;
+                        preview.appendChild(img);
+                    }
+                }, 'image/png');
+            });
+
+            document.getElementById('status').innerHTML = 
+                `<div class="status success">✅ All ${sizes.length} icons generated! Click "Download All Icons" to save them.</div>`;
+        }
+
+        function downloadAll() {
+            if (Object.keys(generatedIcons).length === 0) {
+                alert('Please generate icons first!');
+                return;
+            }
+
+            sizes.forEach(size => {
+                if (generatedIcons[size]) {
+                    const link = document.createElement('a');
+                    link.download = `icon-${size}x${size}.png`;
+                    link.href = generatedIcons[size].url;
+                    link.click();
+                }
+            });
+
+            document.getElementById('status').innerHTML = 
+                `<div class="status success">✅ All icons downloaded! Place them in the public/icons/ folder.</div>`;
+        }
+    </script>
+</body>
+</html>
+

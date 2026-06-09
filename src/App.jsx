@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import OfflineIndicator from './components/OfflineIndicator'
+import InstallApp from './components/InstallApp'
 import LandingPage from './components/LandingPage'
 import Signup from './components/Signup'
 import Login from './components/Login'
@@ -40,6 +42,8 @@ function SignupPage() {
 function App() {
   return (
     <AuthProvider>
+      <OfflineIndicator />
+      <InstallApp variant="banner" />
       <Router>
         <Routes>
           <Route path="/" element={<LandingPage />} />

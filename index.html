@@ -7,7 +7,7 @@
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#4a90e2" />
-    <meta name="description" content="A powerful inventory management system for managing products, categories, staff, and customers" />
+    <meta name="description" content="Offline inventory management with local accounts and database" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Inventory.co" />
@@ -28,20 +28,6 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      // Register service worker for PWA
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then((registration) => {
-              console.log('Service Worker registered:', registration);
-            })
-            .catch((error) => {
-              console.log('Service Worker registration failed:', error);
-            });
-        });
-      }
-    </script>
   </body>
 </html>
 

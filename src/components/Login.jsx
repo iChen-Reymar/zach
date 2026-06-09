@@ -71,19 +71,10 @@ function Login({ onToggle }) {
           errorMessage = result.error
         }
         
-        // Common Supabase error messages
-        if (errorMessage.includes('Invalid login credentials') || 
-            errorMessage.includes('invalid_credentials') ||
-            result.error.status === 400) {
+        if (errorMessage.includes('Invalid email or password')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.'
-        } else if (errorMessage.includes('Email not confirmed') || 
-                   errorMessage.includes('email_not_confirmed')) {
-          errorMessage = 'Please confirm your email address before signing in. Check your inbox for a confirmation email.'
-        } else if (errorMessage.includes('User not found') || 
-                   errorMessage.includes('user_not_found')) {
-          errorMessage = 'No account found with this email address. Please sign up first.'
-        } else if (errorMessage.includes('Too many requests')) {
-          errorMessage = 'Too many login attempts. Please wait a few minutes and try again.'
+        } else if (errorMessage.includes('already exists')) {
+          errorMessage = 'An account with this email already exists. Try logging in instead.'
         }
         
         setError(errorMessage)
@@ -155,12 +146,13 @@ function Login({ onToggle }) {
               className="px-4 py-3.5 border border-gray-300 rounded-lg text-base outline-none focus:border-primary-blue transition-colors bg-white placeholder:text-gray-400"
               required
             />
-            <a
-              href="#"
-              className="text-gray-600 text-sm -mt-2.5 mb-2.5 text-right hover:text-primary-blue transition-colors"
+            <button
+              type="button"
+              className="text-gray-600 text-sm -mt-2.5 mb-2.5 text-right hover:text-primary-blue transition-colors self-end"
+              onClick={() => setError('Password reset is not available offline. Contact your admin.')}
             >
               Forgot password
-            </a>
+            </button>
             {error && (
               <div className="text-red-600 text-sm mt-2">{error}</div>
             )}
