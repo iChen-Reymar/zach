@@ -1,132 +1,458 @@
-const DB_NAME = 'inventory_co_db'
-const DB_VERSION = 1
+import initSqlJs from 'sql.js/dist/sql-wasm.js'
+import { isElectron } from '../utils/isElectron'
 
-const STORES = {
-  USERS: 'users',
-  PROFILES: 'profiles',
-  CATEGORIES: 'categories',
-  PRODUCTS: 'products',
-  STAFF: 'staff',
-  CUSTOMERS: 'customers',
-  ORDERS: 'orders',
-  META: 'meta'
-}
+const SQLITE_STORAGE_KEY = 'inventory_co_sqlite'
+const DEFAULT_ADMIN_EMAIL = 'admin@inventory.local'
+const DEFAULT_ADMIN_PASSWORD = 'admin123'
+const IDB_NAME = 'inventory_co_storage'
+const IDB_STORE = 'database'
+const LEGACY_IDB_NAME = 'inventory_co_db'
+const LEGACY_IDB_VERSION = 1
 
-let dbPromise = null
+let db = null
+let initPromise = null
+let persistTimer = null
 
-function openDatabase() {
-  if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION)
+const SCHEMA = `
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
 
-      request.onerror = () => reject(request.error)
-      request.onsuccess = () => resolve(request.result)
+  CREATE TABLE IF NOT EXISTS profiles (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    role TEXT NOT NULL,
+    balance REAL DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result
+  CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    image TEXT,
+    item_count INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
 
-        if (!db.objectStoreNames.contains(STORES.USERS)) {
-          const users = db.createObjectStore(STORES.USERS, { keyPath: 'id' })
-          users.createIndex('email', 'email', { unique: true })
-        }
+  CREATE TABLE IF NOT EXISTS products (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    stock INTEGER NOT NULL,
+    price REAL DEFAULT 0,
+    status TEXT NOT NULL,
+    category_id TEXT,
+    category_name TEXT,
+    image TEXT,
+    barcode TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 
-        if (!db.objectStoreNames.contains(STORES.PROFILES)) {
-          const profiles = db.createObjectStore(STORES.PROFILES, { keyPath: 'id' })
-          profiles.createIndex('email', 'email', { unique: false })
-        }
+  CREATE TABLE IF NOT EXISTS staff (
+    id TEXT PRIMARY KEY,
+    staff_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    email TEXT,
+    role TEXT NOT NULL,
+    user_id TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_staff_user ON staff(user_id);
+  CREATE INDEX IF NOT EXISTS idx_staff_email ON staff(email);
 
-        if (!db.objectStoreNames.contains(STORES.CATEGORIES)) {
-          db.createObjectStore(STORES.CATEGORIES, { keyPath: 'id' })
-        }
+  CREATE TABLE IF NOT EXISTS customers (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    email TEXT,
+    role TEXT NOT NULL,
+    user_id TEXT,
+    status TEXT NOT NULL,
+    approved_by TEXT,
+    approved_at TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_customers_user ON customers(user_id);
+  CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
 
-        if (!db.objectStoreNames.contains(STORES.PRODUCTS)) {
-          const products = db.createObjectStore(STORES.PRODUCTS, { keyPath: 'id' })
-          products.createIndex('category_id', 'category_id', { unique: false })
-        }
+  CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT,
+    product_id TEXT,
+    product_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    order_date TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 
-        if (!db.objectStoreNames.contains(STORES.STAFF)) {
-          const staff = db.createObjectStore(STORES.STAFF, { keyPath: 'id' })
-          staff.createIndex('user_id', 'user_id', { unique: false })
-          staff.createIndex('email', 'email', { unique: false })
-        }
+  CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+`
 
-        if (!db.objectStoreNames.contains(STORES.CUSTOMERS)) {
-          const customers = db.createObjectStore(STORES.CUSTOMERS, { keyPath: 'id' })
-          customers.createIndex('user_id', 'user_id', { unique: false })
-          customers.createIndex('email', 'email', { unique: false })
-        }
-
-        if (!db.objectStoreNames.contains(STORES.ORDERS)) {
-          const orders = db.createObjectStore(STORES.ORDERS, { keyPath: 'id' })
-          orders.createIndex('customer_id', 'customer_id', { unique: false })
-        }
-
-        if (!db.objectStoreNames.contains(STORES.META)) {
-          db.createObjectStore(STORES.META, { keyPath: 'key' })
-        }
-      }
-    })
-  }
-
-  return dbPromise
-}
-
-function promisifyRequest(request) {
+function openStorageDb() {
   return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
+    const request = indexedDB.open(IDB_NAME, 1)
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(IDB_STORE)
+    }
     request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(request.result)
   })
 }
 
-async function getAll(storeName) {
-  const db = await openDatabase()
-  const store = db.transaction(storeName, 'readonly').objectStore(storeName)
-  const result = await promisifyRequest(store.getAll())
-  return result || []
+function getWasmPath() {
+  return new URL('./sql-wasm.wasm', window.location.href).href
 }
 
-async function getById(storeName, id) {
-  const db = await openDatabase()
-  const store = db.transaction(storeName, 'readonly').objectStore(storeName)
-  const result = await promisifyRequest(store.get(id))
-  return result || null
+async function loadSqliteFile() {
+  if (isElectron()) {
+    const data = await window.electronAPI.readDatabase()
+    if (!data) return null
+    return data instanceof Uint8Array ? data : new Uint8Array(data)
+  }
+
+  const idb = await openStorageDb()
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(IDB_STORE, 'readonly')
+    const get = tx.objectStore(IDB_STORE).get(SQLITE_STORAGE_KEY)
+    get.onsuccess = () => resolve(get.result || null)
+    get.onerror = () => reject(get.error)
+  })
 }
 
-async function getByIndex(storeName, indexName, value) {
-  const db = await openDatabase()
-  const store = db.transaction(storeName, 'readonly').objectStore(storeName)
-  const result = await promisifyRequest(store.index(indexName).get(value))
-  return result || null
+async function saveSqliteFile(data) {
+  if (isElectron()) {
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
+    await window.electronAPI.writeDatabase(bytes)
+    return
+  }
+
+  const idb = await openStorageDb()
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(IDB_STORE, 'readwrite')
+    tx.objectStore(IDB_STORE).put(data, SQLITE_STORAGE_KEY)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
 }
 
-async function getAllByIndex(storeName, indexName, value) {
-  const db = await openDatabase()
-  const store = db.transaction(storeName, 'readonly').objectStore(storeName)
-  const result = await promisifyRequest(store.index(indexName).getAll(value))
-  return result || []
+function schedulePersist() {
+  clearTimeout(persistTimer)
+  persistTimer = setTimeout(() => {
+    if (!db) return
+    try {
+      const data = db.export()
+      saveSqliteFile(data).catch((err) => console.error('SQLite persist failed:', err))
+    } catch (err) {
+      console.error('SQLite export failed:', err)
+    }
+  }, 250)
 }
 
-async function put(storeName, item) {
-  const db = await openDatabase()
-  const store = db.transaction(storeName, 'readwrite').objectStore(storeName)
-  await promisifyRequest(store.put(item))
-  return item
+function persistNow() {
+  clearTimeout(persistTimer)
+  if (!db) return Promise.resolve()
+  const data = db.export()
+  return saveSqliteFile(data)
 }
 
-async function remove(storeName, id) {
-  const db = await openDatabase()
-  const store = db.transaction(storeName, 'readwrite').objectStore(storeName)
-  await promisifyRequest(store.delete(id))
-  return true
+function queryAll(sql, params = []) {
+  const stmt = db.prepare(sql)
+  stmt.bind(params)
+  const rows = []
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject())
+  }
+  stmt.free()
+  return rows
 }
 
-async function getMeta(key) {
-  const record = await getById(STORES.META, key)
-  return record?.value ?? null
+function queryOne(sql, params = []) {
+  const rows = queryAll(sql, params)
+  return rows[0] || null
 }
 
-async function setMeta(key, value) {
-  return put(STORES.META, { key, value })
+function run(sql, params = []) {
+  db.run(sql, params)
+  schedulePersist()
+}
+
+function rowToUser(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.password_hash,
+    salt: row.salt,
+    created_at: row.created_at
+  }
+}
+
+function rowToProfile(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    balance: row.balance ?? 0,
+    created_at: row.created_at
+  }
+}
+
+function rowToCategory(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    name: row.name,
+    image: row.image,
+    item_count: row.item_count ?? 0,
+    created_at: row.created_at
+  }
+}
+
+function rowToProduct(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    name: row.name,
+    stock: row.stock,
+    price: row.price ?? 0,
+    status: row.status,
+    category_id: row.category_id,
+    category_name: row.category_name,
+    image: row.image,
+    barcode: row.barcode || null,
+    created_at: row.created_at
+  }
+}
+
+function migrateSchema() {
+  const columns = queryAll('PRAGMA table_info(products)')
+  if (columns.length === 0) return
+
+  if (!columns.some((col) => col.name === 'barcode')) {
+    db.run('ALTER TABLE products ADD COLUMN barcode TEXT')
+  }
+  db.run('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)')
+}
+
+function rowToStaff(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    staff_id: row.staff_id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    user_id: row.user_id,
+    created_at: row.created_at
+  }
+}
+
+function rowToCustomer(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    customer_id: row.customer_id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    user_id: row.user_id,
+    status: row.status,
+    approved_by: row.approved_by,
+    approved_at: row.approved_at,
+    created_at: row.created_at
+  }
+}
+
+function rowToOrder(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    customer_id: row.customer_id,
+    product_id: row.product_id,
+    product_name: row.product_name,
+    quantity: row.quantity,
+    order_date: row.order_date
+  }
+}
+
+async function migrateFromLegacyIndexedDB() {
+  const userCount = queryOne('SELECT COUNT(*) AS count FROM users')
+  if (userCount?.count > 0) return
+
+  const legacyData = await readLegacyIndexedDB()
+  if (!legacyData) return
+
+  db.run('BEGIN')
+  try {
+    const exec = (sql, params = []) => db.run(sql, params)
+
+    for (const user of legacyData.users || []) {
+      exec(
+        'INSERT OR IGNORE INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)',
+        [user.id, user.email, user.passwordHash, user.salt, user.created_at]
+      )
+    }
+    for (const profile of legacyData.profiles || []) {
+      exec(
+        'INSERT OR IGNORE INTO profiles (id, name, email, role, balance, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [profile.id, profile.name, profile.email, profile.role, profile.balance ?? 0, profile.created_at]
+      )
+    }
+    for (const cat of legacyData.categories || []) {
+      exec(
+        'INSERT OR IGNORE INTO categories (id, name, image, item_count, created_at) VALUES (?, ?, ?, ?, ?)',
+        [cat.id, cat.name, cat.image, cat.item_count ?? 0, cat.created_at]
+      )
+    }
+    for (const product of legacyData.products || []) {
+      exec(
+        'INSERT OR IGNORE INTO products (id, name, stock, price, status, category_id, category_name, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          product.id,
+          product.name,
+          product.stock,
+          product.price ?? 0,
+          product.status,
+          product.category_id,
+          product.category_name,
+          product.image,
+          product.created_at
+        ]
+      )
+    }
+    for (const member of legacyData.staff || []) {
+      exec(
+        'INSERT OR IGNORE INTO staff (id, staff_id, name, email, role, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [member.id, member.staff_id, member.name, member.email, member.role, member.user_id, member.created_at]
+      )
+    }
+    for (const customer of legacyData.customers || []) {
+      exec(
+        'INSERT OR IGNORE INTO customers (id, customer_id, name, email, role, user_id, status, approved_by, approved_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          customer.id,
+          customer.customer_id,
+          customer.name,
+          customer.email,
+          customer.role,
+          customer.user_id,
+          customer.status,
+          customer.approved_by,
+          customer.approved_at,
+          customer.created_at
+        ]
+      )
+    }
+    for (const order of legacyData.orders || []) {
+      exec(
+        'INSERT OR IGNORE INTO orders (id, customer_id, product_id, product_name, quantity, order_date) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          order.id,
+          order.customer_id,
+          order.product_id,
+          order.product_name,
+          order.quantity,
+          order.order_date
+        ]
+      )
+    }
+    for (const meta of legacyData.meta || []) {
+      exec('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', [meta.key, meta.value])
+    }
+    db.run('COMMIT')
+    await persistNow()
+    console.info('Migrated data from legacy IndexedDB to SQLite')
+  } catch (err) {
+    db.run('ROLLBACK')
+    throw err
+  }
+}
+
+function readLegacyIndexedDB() {
+  return new Promise((resolve) => {
+    const request = indexedDB.open(LEGACY_IDB_NAME, LEGACY_IDB_VERSION)
+    request.onerror = () => resolve(null)
+    request.onsuccess = async () => {
+      const idb = request.result
+      const storeNames = Array.from(idb.objectStoreNames)
+      if (storeNames.length === 0) {
+        resolve(null)
+        return
+      }
+
+      const readStore = (name) =>
+        new Promise((res, rej) => {
+          const tx = idb.transaction(name, 'readonly')
+          const getAll = tx.objectStore(name).getAll()
+          getAll.onsuccess = () => res(getAll.result || [])
+          getAll.onerror = () => rej(getAll.error)
+        })
+
+      try {
+        const data = {}
+        for (const name of storeNames) {
+          data[name] = await readStore(name)
+        }
+        resolve(data)
+      } catch {
+        resolve(null)
+      }
+    }
+  })
+}
+
+async function ensureDefaultAdmin() {
+  const userCount = queryOne('SELECT COUNT(*) AS count FROM users')
+  if (userCount?.count > 0) return
+
+  const userId = generateId()
+  const now = new Date().toISOString()
+  const { passwordHash, salt } = await hashPassword(DEFAULT_ADMIN_PASSWORD)
+
+  run(
+    'INSERT INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)',
+    [userId, DEFAULT_ADMIN_EMAIL, passwordHash, salt, now]
+  )
+  run(
+    'INSERT INTO profiles (id, name, email, role, balance, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [userId, 'Administrator', DEFAULT_ADMIN_EMAIL, 'Admin', 0, now]
+  )
+  await persistNow()
+}
+
+async function initDatabaseInternal() {
+  const SQL = await initSqlJs({ locateFile: () => getWasmPath() })
+  const saved = await loadSqliteFile()
+
+  if (saved) {
+    db = new SQL.Database(saved)
+  } else {
+    db = new SQL.Database()
+  }
+
+  db.run(SCHEMA)
+  migrateSchema()
+  await migrateFromLegacyIndexedDB()
+  await ensureDefaultAdmin()
+  await persistNow()
+}
+
+export function getDefaultAdminCredentials() {
+  return {
+    email: DEFAULT_ADMIN_EMAIL,
+    password: DEFAULT_ADMIN_PASSWORD
+  }
 }
 
 export function generateId() {
@@ -156,21 +482,26 @@ export async function verifyPassword(password, passwordHash, salt) {
 }
 
 export async function initDatabase() {
-  await openDatabase()
+  if (!initPromise) {
+    initPromise = initDatabaseInternal()
+  }
+  return initPromise
 }
 
 export const localDatabase = {
   async countUsers() {
-    const users = await getAll(STORES.USERS)
-    return users.length
+    const row = queryOne('SELECT COUNT(*) AS count FROM users')
+    return row?.count ?? 0
   },
 
   async getUserByEmail(email) {
-    return getByIndex(STORES.USERS, 'email', email.trim().toLowerCase())
+    const row = queryOne('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()])
+    return rowToUser(row)
   },
 
   async getUserById(id) {
-    return getById(STORES.USERS, id)
+    const row = queryOne('SELECT * FROM users WHERE id = ?', [id])
+    return rowToUser(row)
   },
 
   async createUser({ email, passwordHash, salt }) {
@@ -181,87 +512,127 @@ export const localDatabase = {
       salt,
       created_at: new Date().toISOString()
     }
-    await put(STORES.USERS, user)
+    run(
+      'INSERT INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)',
+      [user.id, user.email, user.passwordHash, user.salt, user.created_at]
+    )
     return user
   },
 
   async getSessionUserId() {
-    return getMeta('sessionUserId')
+    const row = queryOne('SELECT value FROM meta WHERE key = ?', ['sessionUserId'])
+    return row?.value ?? null
   },
 
   async setSessionUserId(userId) {
     if (userId) {
-      await setMeta('sessionUserId', userId)
+      run('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', ['sessionUserId', userId])
     } else {
-      await remove(STORES.META, 'sessionUserId')
+      run('DELETE FROM meta WHERE key = ?', ['sessionUserId'])
     }
   },
 
   async getProfile(userId) {
-    return getById(STORES.PROFILES, userId)
+    const row = queryOne('SELECT * FROM profiles WHERE id = ?', [userId])
+    return rowToProfile(row)
   },
 
   async getProfileByEmail(email) {
-    return getByIndex(STORES.PROFILES, 'email', email.trim().toLowerCase())
+    const row = queryOne('SELECT * FROM profiles WHERE email = ?', [email.trim().toLowerCase()])
+    return rowToProfile(row)
   },
 
   async getAllProfiles() {
-    return getAll(STORES.PROFILES)
+    return queryAll('SELECT * FROM profiles').map(rowToProfile)
   },
 
   async saveProfile(profile) {
-    return put(STORES.PROFILES, profile)
+    run(
+      'INSERT OR REPLACE INTO profiles (id, name, email, role, balance, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [profile.id, profile.name, profile.email, profile.role, profile.balance ?? 0, profile.created_at]
+    )
+    return profile
   },
 
   async updateProfile(userId, updates) {
-    const existing = await getById(STORES.PROFILES, userId)
+    const existing = await this.getProfile(userId)
     if (!existing) return null
     const updated = { ...existing, ...updates, id: userId }
-    await put(STORES.PROFILES, updated)
+    await this.saveProfile(updated)
     return updated
   },
 
   async getAllCategories() {
-    const categories = await getAll(STORES.CATEGORIES)
-    return categories.sort((a, b) => a.name.localeCompare(b.name))
+    const rows = queryAll('SELECT * FROM categories ORDER BY name ASC')
+    return rows.map(rowToCategory)
   },
 
   async getCategoryById(id) {
-    return getById(STORES.CATEGORIES, id)
+    const row = queryOne('SELECT * FROM categories WHERE id = ?', [id])
+    return rowToCategory(row)
   },
 
   async saveCategory(category) {
-    return put(STORES.CATEGORIES, category)
+    run(
+      'INSERT OR REPLACE INTO categories (id, name, image, item_count, created_at) VALUES (?, ?, ?, ?, ?)',
+      [category.id, category.name, category.image, category.item_count ?? 0, category.created_at]
+    )
+    return category
   },
 
   async deleteCategory(id) {
-    return remove(STORES.CATEGORIES, id)
+    run('DELETE FROM categories WHERE id = ?', [id])
+    return true
   },
 
   async getAllProducts() {
-    const products = await getAll(STORES.PRODUCTS)
-    return products.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const rows = queryAll('SELECT * FROM products ORDER BY created_at DESC')
+    return rows.map(rowToProduct)
   },
 
   async getProductById(id) {
-    return getById(STORES.PRODUCTS, id)
+    const row = queryOne('SELECT * FROM products WHERE id = ?', [id])
+    return rowToProduct(row)
+  },
+
+  async getProductByBarcode(barcode) {
+    const row = queryOne('SELECT * FROM products WHERE barcode = ?', [barcode])
+    return rowToProduct(row)
   },
 
   async countProductsByCategory(categoryId) {
-    const products = await getAllByIndex(STORES.PRODUCTS, 'category_id', categoryId)
-    return products.length
+    const row = queryOne('SELECT COUNT(*) AS count FROM products WHERE category_id = ?', [categoryId])
+    return row?.count ?? 0
   },
 
   async saveProduct(product) {
-    return put(STORES.PRODUCTS, product)
+    run(
+      `INSERT OR REPLACE INTO products
+        (id, name, stock, price, status, category_id, category_name, image, barcode, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        product.id,
+        product.name,
+        product.stock,
+        product.price ?? 0,
+        product.status,
+        product.category_id,
+        product.category_name,
+        product.image,
+        product.barcode || null,
+        product.created_at
+      ]
+    )
+    return product
   },
 
   async deleteProduct(id) {
-    return remove(STORES.PRODUCTS, id)
+    run('DELETE FROM products WHERE id = ?', [id])
+    return true
   },
 
   async decrementProductStock(productId, quantity) {
-    const product = await getById(STORES.PRODUCTS, productId)
+    const product = await this.getProductById(productId)
     if (!product) {
       return { success: false, error: 'Product not found' }
     }
@@ -275,102 +646,134 @@ export const localDatabase = {
     else if (newStock <= 2) status = 'Low stock'
 
     const updated = { ...product, stock: newStock, status }
-    await put(STORES.PRODUCTS, updated)
+    await this.saveProduct(updated)
     return { success: true, product: updated }
   },
 
   async getAllStaff() {
-    const staff = await getAll(STORES.STAFF)
-    return staff.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const rows = queryAll('SELECT * FROM staff ORDER BY created_at DESC')
+    return rows.map(rowToStaff)
   },
 
   async getStaffById(id) {
-    return getById(STORES.STAFF, id)
+    const row = queryOne('SELECT * FROM staff WHERE id = ?', [id])
+    return rowToStaff(row)
   },
 
   async getStaffByUserId(userId) {
-    const results = await getAllByIndex(STORES.STAFF, 'user_id', userId)
-    return results[0] || null
+    const row = queryOne('SELECT * FROM staff WHERE user_id = ? LIMIT 1', [userId])
+    return rowToStaff(row)
   },
 
   async saveStaff(staff) {
-    return put(STORES.STAFF, staff)
+    run(
+      'INSERT OR REPLACE INTO staff (id, staff_id, name, email, role, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [staff.id, staff.staff_id, staff.name, staff.email, staff.role, staff.user_id, staff.created_at]
+    )
+    return staff
   },
 
   async deleteStaff(id) {
-    return remove(STORES.STAFF, id)
+    run('DELETE FROM staff WHERE id = ?', [id])
+    return true
   },
 
   async searchProfiles(searchTerm) {
-    const term = searchTerm.toLowerCase().trim()
-    const profiles = await getAll(STORES.PROFILES)
-    return profiles.filter(
-      (p) => p.email?.toLowerCase().includes(term) || p.name?.toLowerCase().includes(term)
+    const term = `%${searchTerm.toLowerCase().trim()}%`
+    const rows = queryAll(
+      'SELECT * FROM profiles WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ?',
+      [term, term]
     )
+    return rows.map(rowToProfile)
   },
 
   async getAllCustomers() {
-    const customers = await getAll(STORES.CUSTOMERS)
-    return customers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const rows = queryAll('SELECT * FROM customers ORDER BY created_at DESC')
+    return rows.map(rowToCustomer)
   },
 
   async getCustomerById(id) {
-    return getById(STORES.CUSTOMERS, id)
+    const row = queryOne('SELECT * FROM customers WHERE id = ?', [id])
+    return rowToCustomer(row)
   },
 
   async getCustomerByUserId(userId) {
-    const results = await getAllByIndex(STORES.CUSTOMERS, 'user_id', userId)
-    return results[0] || null
+    const row = queryOne('SELECT * FROM customers WHERE user_id = ? LIMIT 1', [userId])
+    return rowToCustomer(row)
   },
 
   async getCustomerByEmail(email) {
-    const normalized = email.trim().toLowerCase()
-    const customers = await getAll(STORES.CUSTOMERS)
-    return customers.find((c) => c.email?.trim().toLowerCase() === normalized) || null
+    const row = queryOne('SELECT * FROM customers WHERE LOWER(email) = ?', [email.trim().toLowerCase()])
+    return rowToCustomer(row)
   },
 
   async saveCustomer(customer) {
-    return put(STORES.CUSTOMERS, customer)
+    run(
+      `INSERT OR REPLACE INTO customers
+        (id, customer_id, name, email, role, user_id, status, approved_by, approved_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        customer.id,
+        customer.customer_id,
+        customer.name,
+        customer.email,
+        customer.role,
+        customer.user_id,
+        customer.status,
+        customer.approved_by,
+        customer.approved_at,
+        customer.created_at
+      ]
+    )
+    return customer
   },
 
   async deleteCustomer(id) {
-    return remove(STORES.CUSTOMERS, id)
+    run('DELETE FROM customers WHERE id = ?', [id])
+    return true
   },
 
   async getPendingCustomers() {
-    const customers = await getAll(STORES.CUSTOMERS)
-    return customers
-      .filter((c) => c.status === 'pending')
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const rows = queryAll(
+      "SELECT * FROM customers WHERE status = 'pending' ORDER BY created_at DESC"
+    )
+    return rows.map(rowToCustomer)
   },
 
   async getAllOrders() {
-    const orders = await getAll(STORES.ORDERS)
-    return orders.sort((a, b) => new Date(b.order_date) - new Date(a.order_date))
+    const rows = queryAll('SELECT * FROM orders ORDER BY order_date DESC')
+    return rows.map(rowToOrder)
   },
 
   async getOrdersByCustomerId(customerId) {
-    const orders = await getAllByIndex(STORES.ORDERS, 'customer_id', customerId)
-    return orders.sort((a, b) => new Date(b.order_date) - new Date(a.order_date))
+    const rows = queryAll(
+      'SELECT * FROM orders WHERE customer_id = ? ORDER BY order_date DESC',
+      [customerId]
+    )
+    return rows.map(rowToOrder)
   },
 
   async getOrderById(id) {
-    return getById(STORES.ORDERS, id)
+    const row = queryOne('SELECT * FROM orders WHERE id = ?', [id])
+    return rowToOrder(row)
   },
 
   async saveOrder(order) {
-    return put(STORES.ORDERS, order)
+    run(
+      'INSERT OR REPLACE INTO orders (id, customer_id, product_id, product_name, quantity, order_date) VALUES (?, ?, ?, ?, ?, ?)',
+      [order.id, order.customer_id, order.product_id, order.product_name, order.quantity, order.order_date]
+    )
+    return order
   },
 
   async deleteOrder(id) {
-    return remove(STORES.ORDERS, id)
+    run('DELETE FROM orders WHERE id = ?', [id])
+    return true
   },
 
   async enrichOrderWithCustomer(order) {
     if (!order) return null
-    const customer = order.customer_id
-      ? await getById(STORES.CUSTOMERS, order.customer_id)
-      : null
+    const customer = order.customer_id ? await this.getCustomerById(order.customer_id) : null
     return {
       ...order,
       customers: customer
@@ -380,6 +783,61 @@ export const localDatabase = {
             email: customer.email
           }
         : null
+    }
+  },
+
+  async exportDatabase() {
+    await persistNow()
+    return db.export()
+  },
+
+  async getTableStats() {
+    const tables = ['users', 'profiles', 'categories', 'products', 'staff', 'customers', 'orders']
+    const stats = {}
+    for (const table of tables) {
+      const row = queryOne(`SELECT COUNT(*) AS count FROM ${table}`)
+      stats[table] = row?.count ?? 0
+    }
+    return stats
+  },
+
+  async clearAllDataExceptAdmin() {
+    const adminProfiles = queryAll("SELECT id FROM profiles WHERE role = 'Admin'")
+    const adminIds = [...new Set(adminProfiles.map((p) => p.id))]
+
+    const defaultAdmin = queryOne('SELECT id FROM users WHERE email = ?', [DEFAULT_ADMIN_EMAIL])
+    if (defaultAdmin?.id && !adminIds.includes(defaultAdmin.id)) {
+      adminIds.push(defaultAdmin.id)
+    }
+
+    db.run('BEGIN')
+    try {
+      const exec = (sql, params = []) => db.run(sql, params)
+
+      exec('DELETE FROM orders')
+      exec('DELETE FROM products')
+      exec('DELETE FROM categories')
+      exec('DELETE FROM customers')
+      exec('DELETE FROM staff')
+
+      if (adminIds.length > 0) {
+        const placeholders = adminIds.map(() => '?').join(',')
+        exec(`DELETE FROM users WHERE id NOT IN (${placeholders})`, adminIds)
+        exec(`DELETE FROM profiles WHERE id NOT IN (${placeholders})`, adminIds)
+      } else {
+        exec('DELETE FROM users')
+        exec('DELETE FROM profiles')
+      }
+
+      exec('DELETE FROM meta WHERE key = ?', ['sessionUserId'])
+
+      db.run('COMMIT')
+      await persistNow()
+      await ensureDefaultAdmin()
+      return { keptAdmins: adminIds.length || 1 }
+    } catch (err) {
+      db.run('ROLLBACK')
+      throw err
     }
   }
 }

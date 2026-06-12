@@ -1,7 +1,21 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="80" fill="#4a90e2"/>
-  <rect x="128" y="128" width="256" height="256" rx="24" fill="white" opacity="0.95"/>
-  <rect x="160" y="160" width="192" height="192" rx="16" fill="none" stroke="#4a90e2" stroke-width="12"/>
-  <path d="M256 224 L256 288 M224 256 L288 256" stroke="#4a90e2" stroke-width="16" stroke-linecap="round"/>
-</svg>
+  <rect width="512" height="512" rx="96" fill="#4A90E2"/>
 
+  <!-- Bottom box -->
+  <rect x="96" y="280" width="152" height="128" rx="16" fill="white"/>
+  <path d="M96 328 H248" stroke="#4A90E2" stroke-width="8"/>
+  <line x1="120" y1="356" x2="200" y2="356" stroke="#4A90E2" stroke-width="10" stroke-linecap="round"/>
+  <line x1="120" y1="382" x2="176" y2="382" stroke="#4A90E2" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Middle box -->
+  <rect x="180" y="196" width="152" height="128" rx="16" fill="white"/>
+  <path d="M180 244 H332" stroke="#4A90E2" stroke-width="8"/>
+  <path d="M256 196 V244 M212 220 H300" stroke="#4A90E2" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Top box -->
+  <rect x="264" y="112" width="152" height="128" rx="16" fill="white"/>
+  <path d="M264 160 H416" stroke="#4A90E2" stroke-width="8"/>
+  <rect x="304" y="188" width="72" height="36" rx="6" fill="#4A90E2" opacity="0.15"/>
+  <line x1="312" y1="206" x2="368" y2="206" stroke="#4A90E2" stroke-width="6" stroke-linecap="round"/>
+  <line x1="312" y1="218" x2="352" y2="218" stroke="#4A90E2" stroke-width="6" stroke-linecap="round"/>
+</svg>

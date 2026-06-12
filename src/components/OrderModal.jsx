@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { productService } from '../services/productService'
 import { orderService } from '../services/orderService'
-import { authService } from '../services/authService'
 import { customerService } from '../services/customerService'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -10,25 +9,23 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
   const [products, setProducts] = useState([])
   const [selectedProduct, setSelectedProduct] = useState('')
   const [quantity, setQuantity] = useState(1)
-  const [paymentMethod, setPaymentMethod] = useState('balance') // 'balance', 'gcash', 'credit_card'
+  const [paymentMethod, setPaymentMethod] = useState('gcash')
   const [gcashNumber, setGcashNumber] = useState('')
   const [cardNumber, setCardNumber] = useState('')
   const [cardName, setCardName] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCvv, setCardCvv] = useState('')
-  const [userBalance, setUserBalance] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [customer, setCustomer] = useState(null)
 
-  // Fetch products, customer data, and user balance
+  // Fetch products and customer data
   useEffect(() => {
     if (isOpen && user) {
       console.log('🔄 OrderModal opened, fetching data for user:', user.id, user.email)
       fetchProducts()
       fetchCustomer()
-      fetchUserBalance()
     }
     // Reset customer state when modal closes
     if (!isOpen) {
@@ -127,19 +124,6 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
     }
   }
 
-  const fetchUserBalance = async () => {
-    if (!user?.id) return
-    
-    try {
-      const { data, error } = await authService.getUserProfile(user.id)
-      if (error) throw error
-      setUserBalance(parseFloat(data?.balance || 0))
-    } catch (err) {
-      console.error('Error fetching user balance:', err)
-      setUserBalance(0)
-    }
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -169,13 +153,7 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
 
     const totalAmount = parseFloat(totalPrice)
     
-    // Validate payment method
-    if (paymentMethod === 'balance') {
-      if (userBalance < totalAmount) {
-        setError(`Insufficient balance. You have ₱${userBalance.toFixed(2)}, but need ₱${totalAmount.toFixed(2)}`)
-        return
-      }
-    } else if (paymentMethod === 'gcash') {
+    if (paymentMethod === 'gcash') {
       if (!gcashNumber || gcashNumber.length < 10) {
         setError('Please enter a valid GCash number')
         return
@@ -211,31 +189,6 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
         paymentMethod
       })
 
-      // If paying with balance, deduct from user balance FIRST (before creating order)
-      if (paymentMethod === 'balance') {
-        const newBalance = userBalance - totalAmount
-        console.log('Deducting balance:', { current: userBalance, amount: totalAmount, new: newBalance })
-        
-        const { error: balanceError } = await authService.updateProfile(user.id, {
-          balance: newBalance
-        })
-        
-        if (balanceError) {
-          console.error('Error updating balance:', balanceError)
-          throw new Error(`Failed to deduct balance: ${balanceError.message}`)
-        }
-        
-        console.log('✅ Balance deducted successfully')
-        setUserBalance(newBalance)
-      }
-
-      // DEMO MODE: Simulate payment processing for external payment methods
-      if (paymentMethod !== 'balance') {
-        // Simulate external payment processing delay
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        console.log('DEMO MODE: Processing payment via', paymentMethod)
-      }
-
       // Create order (use customer.id, not customer_id field)
       // Include product_id so orderService can update stock
       const orderData = {
@@ -269,20 +222,6 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
           hint: error.hint
         })
         
-        // If order creation failed and we deducted balance, refund it
-        if (paymentMethod === 'balance') {
-          console.log('Refunding balance due to order creation failure')
-          const { error: refundError } = await authService.updateProfile(user.id, {
-            balance: userBalance // Restore original balance
-          })
-          if (refundError) {
-            console.error('Failed to refund balance:', refundError)
-          } else {
-            setUserBalance(userBalance)
-            console.log('✅ Balance refunded successfully')
-          }
-        }
-        
         // Provide helpful error message
         if (error.code === '42501') {
           throw new Error('Order creation failed due to security policy. Please ensure your customer account is approved and linked to your user account. Contact admin if issue persists.')
@@ -305,7 +244,7 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
       // Reset form
       setSelectedProduct('')
       setQuantity(1)
-      setPaymentMethod('balance')
+      setPaymentMethod('gcash')
       setGcashNumber('')
       setCardNumber('')
       setCardName('')
@@ -330,12 +269,10 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
     ? (parseFloat(selectedProductData.price || 0) * parseInt(quantity || 1)).toFixed(2)
     : '0.00'
   
-  const canPayWithBalance = userBalance >= parseFloat(totalPrice)
-  
   // Debug: Log why button might be disabled
   useEffect(() => {
     if (isOpen) {
-      const buttonDisabled = loading || !selectedProduct || !customer || (paymentMethod === 'balance' && !canPayWithBalance)
+      const buttonDisabled = loading || !selectedProduct || !customer
       console.log('🔍 Order Modal Debug:', {
         isOpen,
         loading,
@@ -347,19 +284,16 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
         customerId: customer?.id,
         customerUserId: customer?.user_id,
         paymentMethod,
-        canPayWithBalance,
-        userBalance,
         totalPrice: parseFloat(totalPrice),
         buttonDisabled,
         disabledReasons: {
           loading,
           noProduct: !selectedProduct,
-          noCustomer: !customer,
-          insufficientBalance: paymentMethod === 'balance' && !canPayWithBalance
+          noCustomer: !customer
         }
       })
     }
-  }, [isOpen, loading, selectedProduct, customer, paymentMethod, canPayWithBalance, userBalance, totalPrice])
+  }, [isOpen, loading, selectedProduct, customer, paymentMethod, totalPrice])
 
   if (!isOpen) return null
 
@@ -493,17 +427,9 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
                   required
                 >
-                  <option value="balance">
-                    Account Balance (₱{userBalance.toFixed(2)} available)
-                  </option>
                   <option value="gcash">GCash</option>
                   <option value="credit_card">Credit Card</option>
                 </select>
-                {paymentMethod === 'balance' && userBalance < parseFloat(totalPrice) && (
-                  <p className="text-xs text-red-600 mt-1">
-                    ⚠️ Insufficient balance. You need ₱{(parseFloat(totalPrice) - userBalance).toFixed(2)} more.
-                  </p>
-                )}
               </div>
             )}
 
@@ -525,7 +451,6 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
                   required
                 />
-                <p className="text-xs text-amber-600 mt-1">⚠️ Demo Mode - No real payment processing</p>
               </div>
             )}
 
@@ -601,7 +526,6 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
                     />
                   </div>
                 </div>
-                <p className="text-xs text-amber-600 mt-1">⚠️ Demo Mode - No real payment processing</p>
               </>
             )}
 
@@ -622,10 +546,7 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
             <button
               type="button"
-              onClick={() => {
-                fetchCustomer()
-                fetchUserBalance()
-              }}
+              onClick={() => fetchCustomer()}
               className="px-3 py-2 text-sm text-primary-blue bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
               title="Refresh customer data"
             >
@@ -641,12 +562,11 @@ function OrderModal({ isOpen, onClose, onOrderPlaced, user }) {
               </button>
               <button
                 type="submit"
-                disabled={loading || !selectedProduct || !customer || (paymentMethod === 'balance' && !canPayWithBalance)}
+                disabled={loading || !selectedProduct || !customer}
                 className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#357abd] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={
                   !selectedProduct ? 'Please select a product' :
                   !customer ? `Customer not found. Status: ${customer ? customer.status : 'N/A'}. Click Refresh to reload.` :
-                  (paymentMethod === 'balance' && !canPayWithBalance) ? `Insufficient balance. Need ₱${totalPrice}, have ₱${userBalance.toFixed(2)}` :
                   'Place order'
                 }
               >

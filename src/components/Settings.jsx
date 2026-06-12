@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import Layout from './Layout'
-import CashInModal from './CashInModal'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
 import { customerService } from '../services/customerService'
-import InstallApp from './InstallApp'
+import GetApp from './GetApp'
 
 function Settings() {
   const { user, profile, isAdmin } = useAuth()
@@ -22,7 +21,6 @@ function Settings() {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [isCashInModalOpen, setIsCashInModalOpen] = useState(false)
   const [customer, setCustomer] = useState(null)
   const [requestingApproval, setRequestingApproval] = useState(false)
 
@@ -86,8 +84,6 @@ function Settings() {
   const displayName = formData.name || displayProfile?.name || user?.user_metadata?.name || 'N/A'
   const displayEmail = formData.email || displayProfile?.email || user?.email || 'N/A'
   const displayRole = formData.role || displayProfile?.role || 'Customer'
-  const displayBalance = displayProfile?.balance || 0
-
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -186,42 +182,6 @@ function Settings() {
     }
   }
 
-  const handleCashIn = async (paymentData) => {
-    try {
-      const userId = viewingUserId || user?.id
-      if (!userId) {
-        throw new Error('User ID not found')
-      }
-
-      // Update balance in profile
-      const currentBalance = parseFloat(displayBalance || 0)
-      const newBalance = currentBalance + parseFloat(paymentData.amount)
-
-      const { error: updateError } = await authService.updateProfile(userId, {
-        balance: newBalance
-      })
-
-      if (updateError) throw updateError
-
-      // Reload profile to show updated balance
-      const { data: updatedProfile } = await authService.getUserProfile(userId)
-      if (updatedProfile) {
-        if (userIdParam) {
-          setViewingProfile(updatedProfile)
-        } else {
-          // For own profile, update viewing profile to reflect new balance
-          setViewingProfile(updatedProfile)
-        }
-      }
-
-      setSuccess(`✅ Demo: Successfully cashed in ₱${parseFloat(paymentData.amount).toFixed(2)}! (Balance updated)`)
-      setTimeout(() => setSuccess(''), 5000)
-    } catch (err) {
-      console.error('Error processing cash in:', err)
-      throw new Error(err.message || 'Failed to process cash in. Please try again.')
-    }
-  }
-
   if (loading) {
     return (
       <Layout pageTitle="settings">
@@ -234,12 +194,6 @@ function Settings() {
 
   return (
     <Layout pageTitle="settings">
-      <CashInModal
-        isOpen={isCashInModalOpen}
-        onClose={() => setIsCashInModalOpen(false)}
-        onCashIn={handleCashIn}
-        currentBalance={displayBalance}
-      />
       <div className="p-4 sm:p-6">
         {/* Page Header */}
         <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -288,8 +242,8 @@ function Settings() {
         )}
 
         {!isViewingOtherUser && (
-          <div className="mb-4 sm:mb-6">
-            <InstallApp variant="card" />
+          <div className="mb-4 sm:mb-6 space-y-4">
+            <GetApp variant="card" />
           </div>
         )}
 
@@ -410,31 +364,6 @@ function Settings() {
             </div>
           )}
 
-          {/* Balance Section - Only show for own profile */}
-          {!isViewingOtherUser && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Account Balance</p>
-                    <p className="text-3xl font-bold text-primary-blue">
-                      ₱{parseFloat(displayBalance || 0).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-amber-600 mt-1 font-medium">⚠️ Demo Mode</p>
-                  </div>
-                  <button
-                    onClick={() => setIsCashInModalOpen(true)}
-                    className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Cash In (Demo)
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </Layout>

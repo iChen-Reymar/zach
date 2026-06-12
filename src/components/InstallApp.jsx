@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { usePWAInstall } from '../hooks/usePWAInstall'
 
 function InstallApp({ variant = 'banner', onDismiss }) {
-  const { canInstall, isInstalled, isIOSDevice, install } = usePWAInstall()
+  const { canInstall, isInstalled, isIOSDevice, isDev, install } = usePWAInstall()
   const [dismissed, setDismissed] = useState(false)
   const [installing, setInstalling] = useState(false)
 
@@ -50,7 +50,9 @@ function InstallApp({ variant = 'banner', onDismiss }) {
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 sm:p-6">
         <p className="font-semibold text-gray-900 mb-1">Install App</p>
         <p className="text-sm text-gray-600">
-          Open this site in Chrome or Edge on desktop/Android, or Safari on iPhone, then use the browser menu to install.
+          {isDev
+            ? 'Run "npm run build" then "npm run preview" to test install. Dev mode does not support PWA install.'
+            : 'Open in Chrome or Edge (desktop/Android) or Safari (iPhone). Use the browser menu → Install app, or wait for the install banner.'}
         </p>
       </div>
     )

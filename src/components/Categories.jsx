@@ -4,6 +4,7 @@ import Layout from './Layout'
 import AddCategoryModal from './AddCategoryModal'
 import { useAuth } from '../contexts/AuthContext'
 import { categoryService } from '../services/categoryService'
+import { assetPath } from '../utils/assetPath'
 
 function Categories() {
   const navigate = useNavigate()
@@ -57,13 +58,13 @@ function Categories() {
 
   const getDefaultImage = (categoryName) => {
     const categoryImages = {
-      'Base Guitar': '/images/Fender-P-Bass-electric-guitar.webp',
-      'Acoustic Guitar': '/images/cac23fb4865901db2c1ba83534e45ee1.jpg_720x720q80.jpg',
-      'Piano Keyboard': '/images/products_2FF03-097-1910-032_2FF03-097-1910-032_1719213023050_1200x1200 (1).webp',
-      'Electric Guitar': '/images/V6MRLB.webp',
-      'Drum': '/images/drum-kit-standard.eb6cdcf0e2d2b6c360fb.png'
+      'Base Guitar': assetPath('images/Fender-P-Bass-electric-guitar.webp'),
+      'Acoustic Guitar': assetPath('images/cac23fb4865901db2c1ba83534e45ee1.jpg_720x720q80.jpg'),
+      'Piano Keyboard': assetPath('images/products_2FF03-097-1910-032_2FF03-097-1910-032_1719213023050_1200x1200 (1).webp'),
+      'Electric Guitar': assetPath('images/V6MRLB.webp'),
+      'Drum': assetPath('images/drum-kit-standard.eb6cdcf0e2d2b6c360fb.png')
     }
-    return categoryImages[categoryName] || '/images/Fender-P-Bass-electric-guitar.webp'
+    return categoryImages[categoryName] || assetPath('images/Fender-P-Bass-electric-guitar.webp')
   }
 
   const handleAddCategory = async (newCategory) => {

@@ -45,6 +45,7 @@ export const productService = {
         category_id: product.category_id,
         category_name: product.category_name,
         image: image || null,
+        barcode: product.barcode || null,
         created_at: new Date().toISOString()
       }
 

@@ -6,6 +6,7 @@ import OrderModal from './OrderModal'
 import { useAuth } from '../contexts/AuthContext'
 import { productService } from '../services/productService'
 import { categoryService } from '../services/categoryService'
+import { assetPath } from '../utils/assetPath'
 
 function Products() {
   const navigate = useNavigate()
@@ -117,7 +118,8 @@ function Products() {
         price: newProduct.price || 0,
         category_id: category?.id,
         category_name: newProduct.category,
-        image: newProduct.image || null
+        image: newProduct.image || null,
+        barcode: newProduct.barcode || null
       })
       
       if (error) throw error
@@ -133,17 +135,21 @@ function Products() {
     setIsModalOpen(true)
   }
 
-  const handleUpdateProduct = async (updatedProduct) => {
+  const handleUpdateProduct = async (updatedProduct, productId) => {
     try {
+      const id = productId || editingProduct?.id
+      if (!id) return
+
       const category = categories.find(cat => cat.name === updatedProduct.category)
       
-      const { error } = await productService.updateProduct(editingProduct.id, {
+      const { error } = await productService.updateProduct(id, {
         name: updatedProduct.name,
         stock: updatedProduct.stock,
         price: updatedProduct.price || 0,
         category_id: category?.id,
         category_name: updatedProduct.category,
-        image: updatedProduct.image || null
+        image: updatedProduct.image || null,
+        barcode: updatedProduct.barcode || null
       })
       
       if (error) throw error
@@ -174,8 +180,9 @@ function Products() {
   }
 
   const handleProductSubmit = (productData) => {
-    if (editingProduct) {
-      handleUpdateProduct(productData)
+    const updateId = editingProduct?.id || productData.existingProductId
+    if (updateId) {
+      handleUpdateProduct(productData, updateId)
     } else {
       handleAddProduct(productData)
     }
@@ -190,6 +197,7 @@ function Products() {
         onAddProduct={handleProductSubmit}
         editingProduct={editingProduct}
         categories={categories}
+        products={products}
       />
       <OrderModal
         isOpen={isOrderModalOpen}
@@ -337,7 +345,7 @@ function Products() {
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                             <img
-                              src={product.image || '/images/Fender-P-Bass-electric-guitar.webp'}
+                              src={product.image || assetPath('images/Fender-P-Bass-electric-guitar.webp')}
                               alt={product.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
@@ -412,7 +420,7 @@ function Products() {
                 <div className="relative">
                   <div className="w-full h-48 bg-gray-200 overflow-hidden">
                     <img
-                      src={product.image || '/images/Fender-P-Bass-electric-guitar.webp'}
+                      src={product.image || assetPath('images/Fender-P-Bass-electric-guitar.webp')}
                       alt={product.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {

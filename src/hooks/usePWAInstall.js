@@ -15,6 +15,7 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [isInstalled, setIsInstalled] = useState(isStandalone)
   const [isIOSDevice] = useState(isIOS)
+  const isDev = import.meta.env.DEV
 
   useEffect(() => {
     const onInstallable = (e) => {
@@ -55,7 +56,7 @@ export function usePWAInstall() {
     return false
   }, [deferredPrompt])
 
-  const canInstall = Boolean(deferredPrompt) && !isInstalled
+  const canInstall = Boolean(deferredPrompt) && !isInstalled && !isDev
 
-  return { canInstall, isInstalled, isIOSDevice, install }
+  return { canInstall, isInstalled, isIOSDevice, isDev, install }
 }

@@ -1,40 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import ExistingImagePicker from './ExistingImagePicker'
+import ImageUploadField from './ImageUploadField'
+import BarcodeScanner from './BarcodeScanner'
+import { lookupProductByBarcode } from '../utils/barcodeLookup'
 
-function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, categories = [] }) {
+function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, categories = [], products = [] }) {
   const [formData, setFormData] = useState({
     name: '',
     stock: '',
     price: '',
     category: '',
-    image: ''
+    image: '',
+    barcode: ''
   })
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
+  const [lookingUp, setLookingUp] = useState(false)
+  const [matchedProductId, setMatchedProductId] = useState(null)
+  const stockInputRef = useRef(null)
 
-  // Default product images
-  const defaultImages = [
-    { name: 'Base Guitar', path: '/images/Fender-P-Bass-electric-guitar.webp' },
-    { name: 'Acoustic Guitar', path: '/images/cac23fb4865901db2c1ba83534e45ee1.jpg_720x720q80.jpg' },
-    { name: 'Piano Keyboard', path: '/images/products_2FF03-097-1910-032_2FF03-097-1910-032_1719213023050_1200x1200 (1).webp' },
-    { name: 'Electric Guitar', path: '/images/V6MRLB.webp' },
-    { name: 'Drum', path: '/images/drum-kit-standard.eb6cdcf0e2d2b6c360fb.png' }
-  ]
-
-  // Get default image based on category name
-  const getDefaultImageForCategory = (categoryName) => {
-    if (!categoryName) return defaultImages[0].path
-    const found = defaultImages.find(img => 
-      categoryName.toLowerCase().includes(img.name.toLowerCase().split(' ')[0])
-    )
-    return found ? found.path : defaultImages[0].path
-  }
-
-  // Get category image if available
   const getCategoryImage = (categoryName) => {
     if (!categoryName || !categories.length) return null
-    const category = categories.find(cat => cat.name === categoryName)
+    const category = categories.find((cat) => cat.name === categoryName)
     return category?.image || null
   }
 
-  // Update form when editing product changes
   useEffect(() => {
     if (editingProduct) {
       setFormData({
@@ -42,7 +32,8 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
         stock: editingProduct.stock || '',
         price: editingProduct.price || '',
         category: editingProduct.category_name || editingProduct.category || '',
-        image: editingProduct.image || ''
+        image: editingProduct.image || '',
+        barcode: editingProduct.barcode || ''
       })
     } else {
       setFormData({
@@ -50,31 +41,26 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
         stock: '',
         price: '',
         category: '',
-        image: ''
+        image: '',
+        barcode: ''
       })
     }
+    setScanMessage('')
+    setScannerOpen(false)
+    setMatchedProductId(null)
   }, [editingProduct, isOpen])
 
-  // Auto-select image when category changes
   useEffect(() => {
     if (formData.category && !formData.image && !editingProduct) {
-      // First try to get image from category
       const categoryImg = getCategoryImage(formData.category)
       if (categoryImg) {
-        setFormData(prev => ({ ...prev, image: categoryImg }))
-      } else {
-        // Fallback to default image based on category name
-        const defaultImg = getDefaultImageForCategory(formData.category)
-        setFormData(prev => ({ ...prev, image: defaultImg }))
+        setFormData((prev) => ({ ...prev, image: categoryImg }))
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.category])
 
-  // Get category names from categories array or use defaults
-  const categoryNames = categories.length > 0 
-    ? categories.map(cat => cat.name)
-    : ['Base Guitar', 'Acoustic Guitar', 'Piano Keyboard', 'Electric Guitar', 'Drum']
+  const categoryNames = categories.map((cat) => cat.name)
 
   const handleChange = (e) => {
     setFormData({
@@ -83,35 +69,83 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
     })
   }
 
-  const handleImageSelect = (imagePath) => {
-    setFormData({
-      ...formData,
-      image: imagePath
-    })
+  const handleImageChange = (image) => {
+    setFormData((prev) => ({ ...prev, image }))
   }
+
+  const handleBarcodeScan = useCallback(async (barcode) => {
+    setScannerOpen(false)
+    setLookingUp(true)
+    setScanMessage('Looking up product...')
+
+    try {
+      const result = await lookupProductByBarcode(barcode, products)
+
+      if (result.product) {
+        const product = result.product
+        setFormData({
+          name: product.name || '',
+          stock: product.stock ?? '',
+          price: product.price ?? '',
+          category: product.category_name || product.category || '',
+          image: product.image || '',
+          barcode: result.barcode
+        })
+        setMatchedProductId(product.id)
+        setScanMessage(
+          `Existing product found. Name, price, quantity, category, and image filled automatically.`
+        )
+      } else if (result.name) {
+        setMatchedProductId(null)
+        setFormData((prev) => ({
+          ...prev,
+          name: result.name,
+          barcode: result.barcode
+        }))
+        setScanMessage(`New product: ${result.name}. Enter quantity, price, and category.`)
+      } else {
+        setMatchedProductId(null)
+        setFormData((prev) => ({
+          ...prev,
+          name: '',
+          barcode: result.barcode
+        }))
+        setScanMessage(
+          `Barcode scanned (${result.barcode}). Enter the product details manually below.`
+        )
+      }
+
+      setTimeout(() => stockInputRef.current?.focus(), 100)
+    } catch (err) {
+      console.error('Barcode lookup failed:', err)
+      setScanMessage('Scan failed. Try again or enter the product details manually.')
+    } finally {
+      setLookingUp(false)
+    }
+  }, [products])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (formData.name && formData.stock && formData.category) {
-      // Use selected image, or get from category, or use default
-      const finalImage = formData.image || 
-                        getCategoryImage(formData.category) || 
-                        getDefaultImageForCategory(formData.category)
-      
+      const finalImage = formData.image || getCategoryImage(formData.category) || ''
+
       onAddProduct({
         ...formData,
-        stock: parseInt(formData.stock),
+        stock: parseInt(formData.stock, 10),
         price: parseFloat(formData.price) || 0,
-        image: finalImage
+        image: finalImage,
+        barcode: formData.barcode || null,
+        existingProductId: matchedProductId || editingProduct?.id || null
       })
-      // Reset form
       setFormData({
         name: '',
         stock: '',
         price: '',
         category: '',
-        image: ''
+        image: '',
+        barcode: ''
       })
+      setScanMessage('')
       onClose()
     }
   }
@@ -119,194 +153,147 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            {editingProduct ? 'Edit Product' : 'Add Product'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
+    <>
+      <BarcodeScanner
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleBarcodeScan}
+      />
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
-          <div className="space-y-4">
-            {/* Product Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Product Name *
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Enter product name"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
-                required
-              />
-            </div>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+              {editingProduct || matchedProductId ? 'Edit Product' : 'Add Product'}
+            </h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-            {/* Stock/Items */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stock/Items *
-              </label>
-              <input
-                type="number"
-                name="stock"
-                value={formData.stock}
-                onChange={handleChange}
-                placeholder="Enter stock quantity"
-                min="0"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
-                required
-              />
-            </div>
-
-            {/* Price */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Price *
-              </label>
-              <input
-                type="number"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
-                placeholder="Enter price (e.g., 99.99)"
-                min="0"
-                step="0.01"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
-                required
-              />
-            </div>
-
-            {/* Category */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category *
-              </label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
-                required
-              >
-                <option value="">Select a category</option>
-                {categoryNames.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Image Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Product Image
-              </label>
-              
-              {/* Image URL Input */}
-              <input
-                type="text"
-                name="image"
-                value={formData.image}
-                onChange={handleChange}
-                placeholder="Enter image URL or select from defaults"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue mb-3"
-              />
-
-              {/* Image Preview */}
-              {formData.image && (
-                <div className="mb-3">
-                  <p className="text-xs text-gray-500 mb-2">Preview:</p>
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-300">
-                    <img
-                      src={formData.image}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                        e.target.parentElement.innerHTML = '<div class="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">Invalid</div>'
-                      }}
-                    />
-                  </div>
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+            <div className="space-y-4">
+              {!editingProduct && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-700 mb-3">
+                    Scan a barcode to auto-fill product details. If the product already exists, name, price, quantity, category, and image are filled automatically.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setScannerOpen(true)}
+                    disabled={lookingUp}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#357abd] transition-colors disabled:opacity-50"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {lookingUp ? 'Looking up...' : 'Scan Barcode'}
+                  </button>
+                  {scanMessage && (
+                    <p className="text-sm text-blue-800 mt-3">{scanMessage}</p>
+                  )}
                 </div>
               )}
 
-              {/* Default Images Selection */}
               <div>
-                <p className="text-xs text-gray-500 mb-2">Or select from defaults:</p>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                  {defaultImages.map((img, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => handleImageSelect(img.path)}
-                      className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                        formData.image === img.path
-                          ? 'border-primary-blue ring-2 ring-primary-blue ring-offset-2'
-                          : 'border-gray-300 hover:border-primary-blue'
-                      }`}
-                      title={img.name}
-                    >
-                      <img
-                        src={img.path}
-                        alt={img.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = `https://via.placeholder.com/64x64?text=${img.name.charAt(0)}`
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Scan barcode or enter product name"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                  required
+                />
+                {formData.barcode && (
+                  <p className="text-xs text-gray-500 mt-1">Barcode: {formData.barcode}</p>
+                )}
               </div>
-            </div>
-          </div>
 
-          {/* Modal Footer */}
-          <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#357abd] transition-colors"
-            >
-              {editingProduct ? 'Update Product' : 'Add Product'}
-            </button>
-          </div>
-        </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Stock/Items *</label>
+                <input
+                  ref={stockInputRef}
+                  type="number"
+                  name="stock"
+                  value={formData.stock}
+                  onChange={handleChange}
+                  placeholder="Enter stock quantity"
+                  min="0"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price *</label>
+                <input
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  placeholder="Enter price (e.g., 99.99)"
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                  required
+                >
+                  <option value="">Select a category</option>
+                  {categoryNames.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <ImageUploadField label="Product Image" value={formData.image} onChange={handleImageChange}>
+                <ExistingImagePicker
+                  sections={[
+                    { label: 'Or select from existing products:', items: products },
+                    { label: 'Or select from existing categories:', items: categories }
+                  ]}
+                  selectedImage={formData.image}
+                  onSelect={handleImageChange}
+                />
+              </ImageUploadField>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#357abd] transition-colors"
+              >
+                {editingProduct || matchedProductId ? 'Update Product' : 'Add Product'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
 export default AddProductModal
-
