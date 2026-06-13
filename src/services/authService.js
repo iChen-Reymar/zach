@@ -2,7 +2,8 @@ import {
   localDatabase,
   hashPassword,
   verifyPassword,
-  generateId
+  generateId,
+  DEFAULT_ADMIN_EMAIL
 } from './localDatabase'
 
 const generateMaskedCustomerId = () =>
@@ -163,6 +164,11 @@ export const authService = {
 
       const { passwordHash, salt } = await hashPassword(newPassword)
       await localDatabase.updatePassword(userId, passwordHash, salt)
+
+      if (user.email?.trim().toLowerCase() === DEFAULT_ADMIN_EMAIL) {
+        await localDatabase.setMetaFlag('defaultAdminPasswordCustomized', '1')
+      }
+
       return { error: null }
     } catch (err) {
       return { error: { message: err.message || 'Failed to change password' } }

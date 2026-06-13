@@ -2,8 +2,8 @@ import initSqlJs from 'sql.js/dist/sql-wasm.js'
 import { isElectron } from '../utils/isElectron'
 
 const SQLITE_STORAGE_KEY = 'inventory_co_sqlite'
-const DEFAULT_ADMIN_EMAIL = 'zach@gmail.com'
-const DEFAULT_ADMIN_PASSWORD = 'admin123'
+export const DEFAULT_ADMIN_EMAIL = 'zach@gmail.com'
+export const DEFAULT_ADMIN_PASSWORD = 'admin123'
 const IDB_NAME = 'inventory_co_storage'
 const IDB_STORE = 'database'
 const LEGACY_IDB_NAME = 'inventory_co_db'
@@ -395,21 +395,53 @@ function rowToOrder(row) {
   }
 }
 
+function getMetaValue(key) {
+  const row = queryOne('SELECT value FROM meta WHERE key = ?', [key])
+  return row?.value ?? null
+}
+
+function setMetaValue(key, value) {
+  run('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', [key, value])
+}
+
+function clearLegacyIndexedDB() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve()
+
+  return new Promise((resolve) => {
+    const request = indexedDB.deleteDatabase(LEGACY_IDB_NAME)
+    request.onsuccess = () => resolve()
+    request.onerror = () => resolve()
+    request.onblocked = () => resolve()
+  })
+}
+
 async function migrateFromLegacyIndexedDB() {
+  if (getMetaValue('legacyMigrated') === '1') return
+
   const userCount = queryOne('SELECT COUNT(*) AS count FROM users')
-  if (userCount?.count > 0) return
+  if (userCount?.count > 0) {
+    setMetaValue('legacyMigrated', '1')
+    return
+  }
 
   const legacyData = await readLegacyIndexedDB()
-  if (!legacyData) return
+  if (!legacyData) {
+    setMetaValue('legacyMigrated', '1')
+    return
+  }
 
   db.run('BEGIN')
   try {
     const exec = (sql, params = []) => db.run(sql, params)
 
     for (const user of legacyData.users || []) {
+      const passwordHash = user.passwordHash || user.password_hash
+      const salt = user.salt
+      if (!passwordHash || !salt || !user.email) continue
+
       exec(
         'INSERT OR IGNORE INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)',
-        [user.id, user.email, user.passwordHash, user.salt, user.created_at]
+        [user.id, user.email.trim().toLowerCase(), passwordHash, salt, user.created_at]
       )
     }
     for (const profile of legacyData.profiles || []) {
@@ -480,6 +512,7 @@ async function migrateFromLegacyIndexedDB() {
       exec('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', [meta.key, meta.value])
     }
     db.run('COMMIT')
+    setMetaValue('legacyMigrated', '1')
     await persistNow()
     console.info('Migrated data from legacy IndexedDB to SQLite')
   } catch (err) {
@@ -522,21 +555,49 @@ function readLegacyIndexedDB() {
 }
 
 async function ensureDefaultAdmin() {
-  const userCount = queryOne('SELECT COUNT(*) AS count FROM users')
-  if (userCount?.count > 0) return
-
-  const userId = generateId()
+  const email = DEFAULT_ADMIN_EMAIL.trim().toLowerCase()
   const now = new Date().toISOString()
   const { passwordHash, salt } = await hashPassword(DEFAULT_ADMIN_PASSWORD)
 
-  run(
-    'INSERT INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)',
-    [userId, DEFAULT_ADMIN_EMAIL, passwordHash, salt, now]
-  )
-  run(
-    'INSERT INTO profiles (id, name, email, role, balance, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, 'Administrator', DEFAULT_ADMIN_EMAIL, 'Admin', 0, now]
-  )
+  let row = queryOne('SELECT * FROM users WHERE email = ?', [email])
+
+  if (!row) {
+    const userId = generateId()
+    run(
+      'INSERT INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)',
+      [userId, email, passwordHash, salt, now]
+    )
+    run(
+      'INSERT INTO profiles (id, name, email, role, balance, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, 'Administrator', email, 'Admin', 0, now]
+    )
+    await persistNow()
+    return
+  }
+
+  const customized = getMetaValue('defaultAdminPasswordCustomized') === '1'
+  if (!customized) {
+    const user = rowToUser(row)
+    const hasCredentials = user.passwordHash && user.salt
+    const valid = hasCredentials
+      ? await verifyPassword(DEFAULT_ADMIN_PASSWORD, user.passwordHash, user.salt)
+      : false
+
+    if (!valid) {
+      run('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?', [passwordHash, salt, row.id])
+    }
+  }
+
+  const profile = queryOne('SELECT * FROM profiles WHERE id = ?', [row.id])
+  if (!profile) {
+    run(
+      'INSERT INTO profiles (id, name, email, role, balance, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [row.id, 'Administrator', email, 'Admin', 0, now]
+    )
+  } else if (profile.role !== 'Admin') {
+    run('UPDATE profiles SET role = ? WHERE id = ?', ['Admin', row.id])
+  }
+
   await persistNow()
 }
 
@@ -632,6 +693,7 @@ export async function resetLocalDatabase() {
   initPromise = null
   db = null
   await clearStoredDatabaseFile()
+  await clearLegacyIndexedDB()
   return initDatabase()
 }
 
@@ -677,6 +739,10 @@ export const localDatabase = {
     } else {
       run('DELETE FROM meta WHERE key = ?', ['sessionUserId'])
     }
+  },
+
+  async setMetaFlag(key, value) {
+    setMetaValue(key, value)
   },
 
   async getProfile(userId) {

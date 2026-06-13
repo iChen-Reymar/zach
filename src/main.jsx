@@ -55,6 +55,7 @@ function ErrorScreen({ message, onReset }) {
         <p className="text-blue-100 text-sm mb-4">{message}</p>
         <p className="text-blue-200/80 text-xs mb-4">
           This app saves data on your phone and works offline. If an update broke the local database, reset it below.
+          After reset, log in with <strong>zach@gmail.com</strong> / <strong>admin123</strong>.
         </p>
         {resetError && <p className="text-red-200 text-xs mb-3">{resetError}</p>}
         <div className="flex flex-col gap-2">
