@@ -194,6 +194,109 @@ function run(sql, params = []) {
   schedulePersist()
 }
 
+function runSafe(label, fn) {
+  try {
+    fn()
+    return true
+  } catch (err) {
+    console.warn(`Database step skipped (${label}):`, err?.message || err)
+    return false
+  }
+}
+
+function getTableColumns(table) {
+  return queryAll(`PRAGMA table_info(${table})`)
+}
+
+function hasColumn(table, name) {
+  return getTableColumns(table).some((col) => col.name === name)
+}
+
+function applySchemaSafely() {
+  const statements = SCHEMA.split(';')
+    .map((statement) => statement.trim())
+    .filter(Boolean)
+
+  for (const statement of statements) {
+    runSafe('schema', () => db.run(statement))
+  }
+}
+
+function addColumnIfMissing(table, name, definition) {
+  if (hasColumn(table, name)) return true
+  return runSafe(`${table}.${name}`, () => db.run(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`))
+}
+
+function rebuildOrdersTableIfNeeded() {
+  const cols = getTableColumns('orders')
+  if (cols.length === 0) return
+
+  const required = ['staff_id', 'staff_name', 'unit_price', 'total_amount', 'payment_method']
+  if (required.every((name) => cols.some((col) => col.name === name))) return
+
+  runSafe('orders-rebuild', () => {
+    db.run('ALTER TABLE orders RENAME TO orders_backup')
+    db.run(`
+      CREATE TABLE orders (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT,
+        product_id TEXT,
+        product_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_price REAL DEFAULT 0,
+        list_unit_price REAL DEFAULT 0,
+        discount REAL DEFAULT 0,
+        total_amount REAL DEFAULT 0,
+        staff_id TEXT,
+        staff_name TEXT,
+        payment_method TEXT DEFAULT 'cash',
+        order_date TEXT NOT NULL
+      )
+    `)
+
+    const backupCols = getTableColumns('orders_backup').map((col) => col.name)
+    const copyCols = ['id', 'customer_id', 'product_id', 'product_name', 'quantity', 'order_date']
+      .filter((name) => backupCols.includes(name))
+
+    if (copyCols.length > 0) {
+      db.run(
+        `INSERT INTO orders (${copyCols.join(', ')})
+         SELECT ${copyCols.join(', ')} FROM orders_backup`
+      )
+    }
+
+    db.run('DROP TABLE orders_backup')
+  })
+}
+
+function migrateSchema() {
+  if (getTableColumns('products').length > 0) {
+    addColumnIfMissing('products', 'barcode', 'TEXT')
+    if (hasColumn('products', 'barcode')) {
+      runSafe('products-barcode-index', () => db.run('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)'))
+    }
+  }
+
+  if (getTableColumns('orders').length === 0) return
+
+  addColumnIfMissing('orders', 'unit_price', 'REAL DEFAULT 0')
+  addColumnIfMissing('orders', 'list_unit_price', 'REAL DEFAULT 0')
+  addColumnIfMissing('orders', 'discount', 'REAL DEFAULT 0')
+  addColumnIfMissing('orders', 'total_amount', 'REAL DEFAULT 0')
+  addColumnIfMissing('orders', 'staff_id', 'TEXT')
+  addColumnIfMissing('orders', 'staff_name', 'TEXT')
+  addColumnIfMissing('orders', 'payment_method', "TEXT DEFAULT 'cash'")
+
+  rebuildOrdersTableIfNeeded()
+
+  if (hasColumn('orders', 'staff_id')) {
+    runSafe('orders-staff-index', () => db.run('CREATE INDEX IF NOT EXISTS idx_orders_staff ON orders(staff_id)'))
+  }
+  if (hasColumn('orders', 'order_date')) {
+    runSafe('orders-date-index', () => db.run('CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)'))
+  }
+}
+
 function rowToUser(row) {
   if (!row) return null
   return {
@@ -241,42 +344,6 @@ function rowToProduct(row) {
     image: row.image,
     barcode: row.barcode || null,
     created_at: row.created_at
-  }
-}
-
-function migrateSchema() {
-  const productCols = queryAll('PRAGMA table_info(products)')
-  if (productCols.length > 0) {
-    if (!productCols.some((col) => col.name === 'barcode')) {
-      db.run('ALTER TABLE products ADD COLUMN barcode TEXT')
-    }
-    db.run('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)')
-  }
-
-  const orderCols = queryAll('PRAGMA table_info(orders)')
-  if (orderCols.length === 0) return
-
-  const addOrderColumn = (name, definition) => {
-    const cols = queryAll('PRAGMA table_info(orders)')
-    if (!cols.some((col) => col.name === name)) {
-      db.run(`ALTER TABLE orders ADD COLUMN ${name} ${definition}`)
-    }
-  }
-
-  addOrderColumn('unit_price', 'REAL DEFAULT 0')
-  addOrderColumn('list_unit_price', 'REAL DEFAULT 0')
-  addOrderColumn('discount', 'REAL DEFAULT 0')
-  addOrderColumn('total_amount', 'REAL DEFAULT 0')
-  addOrderColumn('staff_id', 'TEXT')
-  addOrderColumn('staff_name', 'TEXT')
-  addOrderColumn('payment_method', "TEXT DEFAULT 'cash'")
-
-  const updatedOrderCols = queryAll('PRAGMA table_info(orders)')
-  if (updatedOrderCols.some((col) => col.name === 'staff_id')) {
-    db.run('CREATE INDEX IF NOT EXISTS idx_orders_staff ON orders(staff_id)')
-  }
-  if (updatedOrderCols.some((col) => col.name === 'order_date')) {
-    db.run('CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)')
   }
 }
 
@@ -483,14 +550,21 @@ async function initDatabaseInternal() {
     db = new SQL.Database()
   }
 
-  try {
-    db.run(SCHEMA)
-  } catch (err) {
-    console.warn('Base schema apply warning (will run migrations):', err?.message || err)
-  }
+  applySchemaSafely()
   migrateSchema()
-  await migrateFromLegacyIndexedDB()
-  await ensureDefaultAdmin()
+
+  try {
+    await migrateFromLegacyIndexedDB()
+  } catch (err) {
+    console.warn('Legacy migration skipped:', err?.message || err)
+  }
+
+  try {
+    await ensureDefaultAdmin()
+  } catch (err) {
+    console.warn('Default admin setup skipped:', err?.message || err)
+  }
+
   await persistNow()
 }
 
@@ -529,9 +603,36 @@ export async function verifyPassword(password, passwordHash, salt) {
 
 export async function initDatabase() {
   if (!initPromise) {
-    initPromise = initDatabaseInternal()
+    initPromise = initDatabaseInternal().catch((err) => {
+      initPromise = null
+      throw err
+    })
   }
   return initPromise
+}
+
+async function clearStoredDatabaseFile() {
+  if (isElectron()) {
+    if (window.electronAPI?.writeDatabase) {
+      await window.electronAPI.writeDatabase(new Uint8Array())
+    }
+    return
+  }
+
+  const idb = await openStorageDb()
+  await new Promise((resolve, reject) => {
+    const tx = idb.transaction(IDB_STORE, 'readwrite')
+    tx.objectStore(IDB_STORE).delete(SQLITE_STORAGE_KEY)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function resetLocalDatabase() {
+  initPromise = null
+  db = null
+  await clearStoredDatabaseFile()
+  return initDatabase()
 }
 
 export const localDatabase = {
