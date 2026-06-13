@@ -12,6 +12,7 @@ import Categories from './components/Categories'
 import Staffs from './components/Staffs'
 import Customers from './components/Customers'
 import Settings from './components/Settings'
+import Reports from './components/Reports'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function AuthWrapper({ children }) {
@@ -97,6 +98,14 @@ function App() {
                 <Settings />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <Reports />
+              </ProtectedRoute>
+            }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import initSqlJs from 'sql.js'
 
-const DEFAULT_ADMIN_EMAIL = 'admin@inventory.local'
+const DEFAULT_ADMIN_EMAIL = 'zach@gmail.com'
 const paths = [
   path.join(process.env.APPDATA || '', 'Inventory.co', 'inventory.db'),
   path.join(process.env.APPDATA || '', 'inventory-co', 'inventory.db')

@@ -3,7 +3,7 @@ import { isMobileDevice, isAndroid, isIOSDevice } from '../utils/device'
 import { isDesktopApp } from '../utils/downloadApp'
 import DownloadApp from './DownloadApp'
 import InstallApp from './InstallApp'
-import { assetPath } from '../utils/assetPath'
+import BrandText from './BrandText'
 
 function PhoneAppCard() {
   const navigate = useNavigate()
@@ -12,11 +12,11 @@ function PhoneAppCard() {
     <div className="space-y-4">
       <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-4 sm:p-6">
         <div className="flex items-start gap-3">
-          <img src={assetPath('icons/icon-192x192.png')} alt="" className="w-12 h-12 rounded-lg shadow-sm shrink-0" />
+          <BrandText size="sm" variant="light" className="shrink-0" />
           <div>
             <p className="font-semibold text-gray-900 text-lg">Use on Phone</p>
             <p className="text-sm text-gray-600 mt-1">
-              Inventory.co runs in your phone browser. You do <strong>not</strong> need the Windows
+              Zach Apparel runs in your phone browser. You do <strong>not</strong> need the Windows
               file — that only works on PC.
             </p>
           </div>

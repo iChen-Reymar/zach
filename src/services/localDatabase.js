@@ -2,7 +2,7 @@ import initSqlJs from 'sql.js/dist/sql-wasm.js'
 import { isElectron } from '../utils/isElectron'
 
 const SQLITE_STORAGE_KEY = 'inventory_co_sqlite'
-const DEFAULT_ADMIN_EMAIL = 'admin@inventory.local'
+const DEFAULT_ADMIN_EMAIL = 'zach@gmail.com'
 const DEFAULT_ADMIN_PASSWORD = 'admin123'
 const IDB_NAME = 'inventory_co_storage'
 const IDB_STORE = 'database'
@@ -66,6 +66,7 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_staff_user ON staff(user_id);
   CREATE INDEX IF NOT EXISTS idx_staff_email ON staff(email);
 
+  
   CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY,
     customer_id TEXT NOT NULL,
@@ -87,9 +88,18 @@ const SCHEMA = `
     product_id TEXT,
     product_name TEXT NOT NULL,
     quantity INTEGER NOT NULL,
+    unit_price REAL DEFAULT 0,
+    list_unit_price REAL DEFAULT 0,
+    discount REAL DEFAULT 0,
+    total_amount REAL DEFAULT 0,
+    staff_id TEXT,
+    staff_name TEXT,
+    payment_method TEXT DEFAULT 'cash',
     order_date TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_orders_staff ON orders(staff_id);
+  CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date);
 
   CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
@@ -236,13 +246,33 @@ function rowToProduct(row) {
 }
 
 function migrateSchema() {
-  const columns = queryAll('PRAGMA table_info(products)')
-  if (columns.length === 0) return
-
-  if (!columns.some((col) => col.name === 'barcode')) {
-    db.run('ALTER TABLE products ADD COLUMN barcode TEXT')
+  const productCols = queryAll('PRAGMA table_info(products)')
+  if (productCols.length > 0) {
+    if (!productCols.some((col) => col.name === 'barcode')) {
+      db.run('ALTER TABLE products ADD COLUMN barcode TEXT')
+    }
+    db.run('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)')
   }
-  db.run('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)')
+
+  const orderCols = queryAll('PRAGMA table_info(orders)')
+  if (orderCols.length === 0) return
+
+  const addOrderColumn = (name, definition) => {
+    if (!orderCols.some((col) => col.name === name)) {
+      db.run(`ALTER TABLE orders ADD COLUMN ${name} ${definition}`)
+    }
+  }
+
+  addOrderColumn('unit_price', 'REAL DEFAULT 0')
+  addOrderColumn('list_unit_price', 'REAL DEFAULT 0')
+  addOrderColumn('discount', 'REAL DEFAULT 0')
+  addOrderColumn('total_amount', 'REAL DEFAULT 0')
+  addOrderColumn('staff_id', 'TEXT')
+  addOrderColumn('staff_name', 'TEXT')
+  addOrderColumn('payment_method', "TEXT DEFAULT 'cash'")
+
+  db.run('CREATE INDEX IF NOT EXISTS idx_orders_staff ON orders(staff_id)')
+  db.run('CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)')
 }
 
 function rowToStaff(row) {
@@ -282,6 +312,13 @@ function rowToOrder(row) {
     product_id: row.product_id,
     product_name: row.product_name,
     quantity: row.quantity,
+    unit_price: row.unit_price ?? 0,
+    list_unit_price: row.list_unit_price ?? row.unit_price ?? 0,
+    discount: row.discount ?? 0,
+    total_amount: row.total_amount ?? 0,
+    staff_id: row.staff_id || null,
+    staff_name: row.staff_name || null,
+    payment_method: row.payment_method || 'cash',
     order_date: row.order_date
   }
 }
@@ -625,6 +662,7 @@ export const localDatabase = {
     )
     return product
   },
+  
 
   async deleteProduct(id) {
     run('DELETE FROM products WHERE id = ?', [id])
@@ -760,10 +798,34 @@ export const localDatabase = {
 
   async saveOrder(order) {
     run(
-      'INSERT OR REPLACE INTO orders (id, customer_id, product_id, product_name, quantity, order_date) VALUES (?, ?, ?, ?, ?, ?)',
-      [order.id, order.customer_id, order.product_id, order.product_name, order.quantity, order.order_date]
+      `INSERT OR REPLACE INTO orders
+        (id, customer_id, product_id, product_name, quantity, unit_price, list_unit_price, discount, total_amount, staff_id, staff_name, payment_method, order_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        order.id,
+        order.customer_id,
+        order.product_id,
+        order.product_name,
+        order.quantity,
+        order.unit_price ?? 0,
+        order.list_unit_price ?? order.unit_price ?? 0,
+        order.discount ?? 0,
+        order.total_amount ?? 0,
+        order.staff_id || null,
+        order.staff_name || null,
+        order.payment_method || 'cash',
+        order.order_date
+      ]
     )
     return order
+  },
+
+  async getOrdersSince(sinceIso) {
+    const rows = queryAll(
+      'SELECT * FROM orders WHERE order_date >= ? ORDER BY order_date DESC',
+      [sinceIso]
+    )
+    return rows.map(rowToOrder)
   },
 
   async deleteOrder(id) {
@@ -809,6 +871,7 @@ export const localDatabase = {
     if (defaultAdmin?.id && !adminIds.includes(defaultAdmin.id)) {
       adminIds.push(defaultAdmin.id)
     }
+    
 
     db.run('BEGIN')
     try {

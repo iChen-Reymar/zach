@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import Layout from './Layout'
 import AddCustomerModal from './AddCustomerModal'
 import { customerService } from '../services/customerService'
 import { useAuth } from '../contexts/AuthContext'
 
 function Customers() {
-  const navigate = useNavigate()
   const { user, profile, isAdmin, isStaff } = useAuth()
   const [customers, setCustomers] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -69,19 +67,6 @@ function Customers() {
     } catch (err) {
       console.error('Error rejecting customer:', err)
       alert('Failed to reject customer. Please try again.')
-    }
-  }
-
-  const handleDeleteCustomer = async (customerId) => {
-    if (!confirm('Are you sure you want to delete this customer? This action cannot be undone.')) return
-    
-    try {
-      const { error } = await customerService.deleteCustomer(customerId)
-      if (error) throw error
-      await fetchCustomers()
-    } catch (err) {
-      console.error('Error deleting customer:', err)
-      alert('Failed to delete customer. Please try again.')
     }
   }
 
@@ -174,24 +159,20 @@ function Customers() {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left py-4 px-6 text-gray-600 font-semibold">ID</th>
                   <th className="text-left py-4 px-6 text-gray-600 font-semibold">Name</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Role</th>
                   <th className="text-left py-4 px-6 text-gray-600 font-semibold">Status</th>
                   <th className="text-left py-4 px-6 text-gray-600 font-semibold">Actions</th>
-                  {isAdmin() && (
-                    <th className="text-left py-4 px-6 text-gray-600 font-semibold">Admin</th>
-                  )}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={isAdmin() ? "6" : "5"} className="py-8 text-center text-gray-400">
+                    <td colSpan="4" className="py-8 text-center text-gray-400">
                       Loading customers...
                     </td>
                   </tr>
                 ) : customers.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin() ? "6" : "5"} className="py-8 text-center text-gray-400">
+                    <td colSpan="4" className="py-8 text-center text-gray-400">
                       No customers found
                     </td>
                   </tr>
@@ -204,64 +185,31 @@ function Customers() {
                       <td className="py-4 px-6 text-gray-900 font-medium">
                         {customer.name}
                       </td>
-                      <td className="py-4 px-6 text-gray-600">
-                        {customer.role}
-                      </td>
                       <td className="py-4 px-6">
                         {getStatusBadge(customer.status)}
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          {customer.status === 'pending' && (isAdmin() || user) && (
-                            <>
-                              <button
-                                onClick={() => handleApprove(customer.id)}
-                                className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors"
-                                title="Approve"
-                              >
-                                ✓ Approve
-                              </button>
-                              <button
-                                onClick={() => handleReject(customer.id)}
-                                className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
-                                title="Reject"
-                              >
-                                ✗ Reject
-                              </button>
-                            </>
-                          )}
-                          <button 
-                            onClick={() => navigate(`/settings?userId=${customer.user_id || customer.id}`)}
-                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-                            title="View Profile"
-                          >
-                            <svg
-                              className="w-5 h-5 text-gray-600"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
+                        {customer.status === 'pending' && (isAdmin() || user) ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleApprove(customer.id)}
+                              className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors"
+                              title="Approve"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5l7 7-7 7"
-                              />
-                            </svg>
-                          </button>
-                        </div>
+                              ✓ Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(customer.id)}
+                              className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
+                              title="Reject"
+                            >
+                              ✗ Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )}
                       </td>
-                      {isAdmin() && (
-                        <td className="py-4 px-6">
-                          <button
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                            className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
-                            title="Delete Customer"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      )}
                     </tr>
                   ))
                 )}
@@ -284,63 +232,28 @@ function Customers() {
                     <p className="text-xs text-gray-500">ID</p>
                     <p className="text-sm font-mono text-gray-900">{customer.customer_id}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(customer.status)}
-                    <button 
-                      onClick={() => navigate(`/settings?userId=${customer.user_id || customer.id}`)}
-                      className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-                      title="View Profile"
-                    >
-                      <svg
-                        className="w-5 h-5 text-gray-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                  {getStatusBadge(customer.status)}
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Name</p>
                   <p className="text-base font-medium text-gray-900">{customer.name}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Role</p>
-                  <p className="text-sm text-gray-600">{customer.role}</p>
-                </div>
-                <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
-                  {customer.status === 'pending' && (isAdmin() || user) && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleApprove(customer.id)}
-                        className="flex-1 px-3 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors"
-                      >
-                        ✓ Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(customer.id)}
-                        className="flex-1 px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
-                      >
-                        ✗ Reject
-                      </button>
-                    </div>
-                  )}
-                  {isAdmin() && (
+                {customer.status === 'pending' && (isAdmin() || user) && (
+                  <div className="flex gap-2 pt-2 border-t border-gray-100">
                     <button
-                      onClick={() => handleDeleteCustomer(customer.id)}
-                      className="w-full px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
+                      onClick={() => handleApprove(customer.id)}
+                      className="flex-1 px-3 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors"
                     >
-                      Delete
+                      ✓ Approve
                     </button>
-                  )}
-                </div>
+                    <button
+                      onClick={() => handleReject(customer.id)}
+                      className="flex-1 px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
+                    >
+                      ✗ Reject
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}

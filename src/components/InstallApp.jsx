@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { usePWAInstall } from '../hooks/usePWAInstall'
+import BrandText from './BrandText'
 
 function InstallApp({ variant = 'banner', onDismiss }) {
   const { canInstall, isInstalled, isIOSDevice, isDev, install } = usePWAInstall()
@@ -32,7 +33,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
             </div>
             <div>
               <p className="font-semibold text-gray-900">App Installed</p>
-              <p className="text-sm text-gray-600">Inventory.co is installed on this device.</p>
+              <p className="text-sm text-gray-600">Zach Apparel is installed on this device.</p>
             </div>
           </div>
         </div>
@@ -62,9 +63,9 @@ function InstallApp({ variant = 'banner', onDismiss }) {
     return (
       <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-4">
         <div className="flex items-start gap-3">
-          <img src="/icons/icon-192x192.png" alt="" className="w-12 h-12 rounded-lg" />
+          <BrandText size="sm" variant="light" className="shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900">Install Inventory.co</p>
+            <p className="font-semibold text-gray-900">Install Zach Apparel</p>
             <p className="text-sm text-gray-600 mt-1">
               Tap Share, then &quot;Add to Home Screen&quot; to install the app.
             </p>
@@ -84,9 +85,9 @@ function InstallApp({ variant = 'banner', onDismiss }) {
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/icons/icon-192x192.png" alt="" className="w-12 h-12 rounded-lg shadow-sm" />
+            <BrandText size="sm" variant="light" className="shrink-0" />
             <div>
-              <p className="font-semibold text-gray-900">Install Inventory.co</p>
+              <p className="font-semibold text-gray-900">Install Zach Apparel</p>
               <p className="text-sm text-gray-600">
                 {isIOSDevice
                   ? 'Tap Share, then "Add to Home Screen".'
@@ -116,9 +117,9 @@ function InstallApp({ variant = 'banner', onDismiss }) {
   return (
     <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-4">
       <div className="flex items-start gap-3">
-        <img src="/icons/icon-192x192.png" alt="" className="w-12 h-12 rounded-lg" />
+        <BrandText size="sm" variant="light" className="shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900">Install Inventory.co</p>
+          <p className="font-semibold text-gray-900">Install Zach Apparel</p>
           <p className="text-sm text-gray-600 mt-1">
             Add to your home screen for offline access and a native app feel.
           </p>

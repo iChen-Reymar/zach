@@ -6,6 +6,7 @@ import { productService } from '../services/productService'
 import { customerService } from '../services/customerService'
 import { categoryService } from '../services/categoryService'
 import { staffService } from '../services/staffService'
+import BrandText from './BrandText'
 
 function Layout({ children, pageTitle = 'home' }) {
   const navigate = useNavigate()
@@ -212,6 +213,9 @@ function Layout({ children, pageTitle = 'home' }) {
       }`}>
         {/* Navigation Links */}
         <div className="flex-1 pt-8 px-6">
+          <div className="mb-8 px-1">
+            <BrandText size="md" variant="dark" />
+          </div>
           <nav className="space-y-6">
             <a 
               href="/home" 
@@ -233,6 +237,18 @@ function Layout({ children, pageTitle = 'home' }) {
               </svg>
               <span className="text-white font-medium">Products</span>
             </a>
+            {(isAdmin() || isStaff()) && (
+              <a
+                href="/reports"
+                onClick={(e) => { e.preventDefault(); navigate('/reports'); setIsSidebarOpen(false) }}
+                className={`flex items-center text-white hover:opacity-80 transition-opacity ${isActive('/reports') ? 'bg-white bg-opacity-20 rounded-lg px-3 py-2' : ''}`}
+              >
+                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6h6v6m2 4H7a2 2 0 01-2-2V7a2 2 0 012-2h3l2-2h4l2 2h3a2 2 0 012 2v12a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-white font-medium">Reports</span>
+              </a>
+            )}
             <a 
               href="/categories" 
               onClick={(e) => { e.preventDefault(); navigate('/categories'); setIsSidebarOpen(false) }}
@@ -273,15 +289,20 @@ function Layout({ children, pageTitle = 'home' }) {
         {/* Action Buttons */}
         <div className="px-6 pb-8 space-y-4">
           {(isAdmin() || isStaff()) && (
-            <button 
-              onClick={() => {
-                navigate('/products')
-                // Trigger modal after navigation - we'll handle this in Products component
-              }}
-              className="w-full py-2.5 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-primary-blue transition-colors"
-            >
-              + Add product
-            </button>
+            <>
+              <button
+                onClick={() => navigate('/products?sale=1')}
+                className="w-full py-2.5 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
+              >
+                Record Sale
+              </button>
+              <button
+                onClick={() => navigate('/products')}
+                className="w-full py-2.5 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-primary-blue transition-colors"
+              >
+                + Add product
+              </button>
+            </>
           )}
           <button 
             onClick={handleLogout}
@@ -317,9 +338,8 @@ function Layout({ children, pageTitle = 'home' }) {
               </svg>
             </button>
             
-            {/* Logo */}
-            <div className="text-xl sm:text-2xl font-bold text-primary-blue flex-1 lg:flex-none">
-              Inventory.oc
+            <div className="flex-1 lg:flex-none">
+              <BrandText size="sm" variant="light" />
             </div>
 
             {/* Mobile Search Button */}

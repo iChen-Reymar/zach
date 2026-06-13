@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import BrandText from './BrandText'
 
 function Signup({ onToggle }) {
   const navigate = useNavigate()
@@ -60,7 +61,9 @@ function Signup({ onToggle }) {
       </button>
 
       <div className="bg-white rounded-xl shadow-xl p-6 sm:p-8 w-full">
-        <h1 className="text-2xl font-bold text-primary-blue text-center mb-2">Inventory.co</h1>
+        <div className="flex justify-center mb-6">
+          <BrandText size="lg" variant="light" />
+        </div>
         <p className="text-gray-500 text-sm text-center mb-6">Create your account</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

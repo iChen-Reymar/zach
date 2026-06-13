@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react'
 import ExistingImagePicker from './ExistingImagePicker'
 import ImageUploadField from './ImageUploadField'
-import { productService } from '../services/productService'
 import { categoryService } from '../services/categoryService'
 
 function AddCategoryModal({ isOpen, onClose, onAddCategory, editingCategory }) {
   const [formData, setFormData] = useState({
     name: '',
-    itemCount: '',
     image: ''
   })
-  const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loadingImages, setLoadingImages] = useState(false)
 
@@ -20,15 +17,10 @@ function AddCategoryModal({ isOpen, onClose, onAddCategory, editingCategory }) {
     const fetchImageSources = async () => {
       setLoadingImages(true)
       try {
-        const [productsResult, categoriesResult] = await Promise.all([
-          productService.getAllProducts(),
-          categoryService.getAllCategories()
-        ])
-        setProducts(productsResult.data || [])
-        setCategories(categoriesResult.data || [])
+        const { data } = await categoryService.getAllCategories()
+        setCategories(data || [])
       } catch (err) {
         console.error('Error loading images:', err)
-        setProducts([])
         setCategories([])
       } finally {
         setLoadingImages(false)
@@ -42,13 +34,11 @@ function AddCategoryModal({ isOpen, onClose, onAddCategory, editingCategory }) {
     if (editingCategory) {
       setFormData({
         name: editingCategory.name || '',
-        itemCount: editingCategory.item_count || editingCategory.itemCount || '',
         image: editingCategory.image || ''
       })
     } else {
       setFormData({
         name: '',
-        itemCount: '',
         image: ''
       })
     }
@@ -67,15 +57,16 @@ function AddCategoryModal({ isOpen, onClose, onAddCategory, editingCategory }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (formData.name && formData.itemCount) {
+    if (formData.name) {
       onAddCategory({
-        ...formData,
-        itemCount: parseInt(formData.itemCount, 10),
-        image: formData.image || ''
+        name: formData.name,
+        image: formData.image || '',
+        itemCount: editingCategory
+          ? (editingCategory.item_count || editingCategory.itemCount || 0)
+          : 0
       })
       setFormData({
         name: '',
-        itemCount: '',
         image: ''
       })
       onClose()
@@ -113,28 +104,13 @@ function AddCategoryModal({ isOpen, onClose, onAddCategory, editingCategory }) {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Item Count *</label>
-              <input
-                type="number"
-                name="itemCount"
-                value={formData.itemCount}
-                onChange={handleChange}
-                placeholder="Enter number of items"
-                min="0"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
-                required
-              />
-            </div>
-
             <ImageUploadField label="Category Image" value={formData.image} onChange={handleImageChange}>
               {loadingImages ? (
                 <p className="text-xs text-gray-400">Loading existing images...</p>
               ) : (
                 <ExistingImagePicker
                   sections={[
-                    { label: 'Or select from existing categories:', items: categories },
-                    { label: 'Or select from existing products:', items: products }
+                    { label: 'Or select from existing categories:', items: categories }
                   ]}
                   selectedImage={formData.image}
                   onSelect={handleImageChange}

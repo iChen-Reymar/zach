@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { fileToDataUrl, IMAGE_ACCEPT } from '../utils/imageUpload'
+import { fileToDataUrl, IMAGE_ACCEPT, MAX_FILE_SIZE_MB } from '../utils/imageUpload'
 
 function ImageUploadField({ label, value, onChange, children }) {
   const fileInputRef = useRef(null)
@@ -49,7 +49,7 @@ function ImageUploadField({ label, value, onChange, children }) {
         >
           {uploading ? 'Uploading...' : 'Choose Image File'}
         </button>
-        <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, or GIF up to 2MB</p>
+        <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, or GIF up to {MAX_FILE_SIZE_MB}MB</p>
         {uploadError && <p className="text-xs text-red-600 mt-1">{uploadError}</p>}
       </div>
 

@@ -42,7 +42,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'Inventory.co',
+    title: 'ZCH Footwear Shop',
     autoHideMenuBar: true,
     icon: path.join(__dirname, '../public/icons/icon-512x512.png'),
     webPreferences: {

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { isElectron } from '../utils/isElectron'
-import { getDefaultAdminCredentials } from '../services/localDatabase'
+import BrandText from './BrandText'
 
 function Login({ onToggle }) {
   const navigate = useNavigate()
@@ -18,8 +17,7 @@ function Login({ onToggle }) {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const defaultAdmin = isElectron() ? getDefaultAdminCredentials() : null
-
+  
   useEffect(() => {
     if (location.pathname !== '/' && location.pathname !== '/login') {
       setLoading(false)
@@ -91,7 +89,9 @@ function Login({ onToggle }) {
       </button>
 
       <div className="bg-white rounded-xl shadow-xl p-6 sm:p-8 w-full">
-        <h1 className="text-2xl font-bold text-primary-blue text-center mb-2">Inventory.co</h1>
+        <div className="flex justify-center mb-6">
+          <BrandText size="lg" variant="light" />
+        </div>
         <p className="text-gray-500 text-sm text-center mb-6">Sign in to your account</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -113,14 +113,6 @@ function Login({ onToggle }) {
             className="px-4 py-3 border border-gray-300 rounded-lg text-base outline-none focus:border-primary-blue"
             required
           />
-
-          {defaultAdmin && (
-            <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <p className="font-medium text-gray-700 mb-1">Default desktop admin</p>
-              <p>Email: <span className="font-mono">{defaultAdmin.email}</span></p>
-              <p>Password: <span className="font-mono">{defaultAdmin.password}</span></p>
-            </div>
-          )}
 
           {error && <div className="text-red-600 text-sm">{error}</div>}
 

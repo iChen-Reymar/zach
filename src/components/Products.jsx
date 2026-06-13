@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import Layout from './Layout'
 import AddProductModal from './AddProductModal'
-import OrderModal from './OrderModal'
+import SaleModal from './SaleModal'
 import { useAuth } from '../contexts/AuthContext'
 import { productService } from '../services/productService'
 import { categoryService } from '../services/categoryService'
@@ -16,7 +16,7 @@ function Products() {
   const [filteredProducts, setFilteredProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
+  const [isSaleModalOpen, setIsSaleModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -32,6 +32,12 @@ function Products() {
     fetchProducts()
     fetchCategories()
   }, [])
+
+  useEffect(() => {
+    if (searchParams.get('sale') === '1' && (isAdmin() || isStaff())) {
+      setIsSaleModalOpen(true)
+    }
+  }, [searchParams])
 
   // Filter products when category filter or search query changes
   useEffect(() => {
@@ -199,11 +205,10 @@ function Products() {
         categories={categories}
         products={products}
       />
-      <OrderModal
-        isOpen={isOrderModalOpen}
-        onClose={() => setIsOrderModalOpen(false)}
-        onOrderPlaced={fetchProducts}
-        user={user}
+      <SaleModal
+        isOpen={isSaleModalOpen}
+        onClose={() => setIsSaleModalOpen(false)}
+        onSaleComplete={fetchProducts}
       />
       <div className="p-3 sm:p-4 md:p-6">
         {/* Page Header */}
@@ -232,12 +237,12 @@ function Products() {
                   + Add
                 </button>
               )}
-              {isCustomer() && (
-                <button 
-                  onClick={() => setIsOrderModalOpen(true)}
+              {(isAdmin() || isStaff()) && (
+                <button
+                  onClick={() => setIsSaleModalOpen(true)}
                   className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
                 >
-                  🛒 Order
+                  Record Sale
                 </button>
               )}
             </div>
@@ -291,13 +296,12 @@ function Products() {
                 </button>
               )}
               
-              {/* Place Order Button - For Customers Only */}
-              {isCustomer() && (
-                <button 
-                  onClick={() => setIsOrderModalOpen(true)}
+              {(isAdmin() || isStaff()) && (
+                <button
+                  onClick={() => setIsSaleModalOpen(true)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
                 >
-                  🛒 Place Order
+                  Record Sale
                 </button>
               )}
             </div>

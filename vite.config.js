@@ -13,7 +13,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['icons/**/*', 'images/**/*', 'sql-wasm.wasm'],
+      includeAssets: ['icons/**/*', 'icons/logo.png', 'images/**/*', 'sql-wasm.wasm'],
       manifest: false,
       devOptions: {
         enabled: false
@@ -30,7 +30,13 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    strictPort: false
+    strictPort: true,
+    hmr: {
+      host: 'localhost',
+      port: 5173,
+      protocol: 'ws',
+      clientPort: 5173
+    }
   },
   preview: {
     host: true,

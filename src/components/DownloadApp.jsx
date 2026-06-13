@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { isDesktopApp, isInstallerAvailable, downloadDesktopApp } from '../utils/downloadApp'
-import { assetPath } from '../utils/assetPath'
+import BrandText from './BrandText'
 
 function DownloadApp({ variant = 'card' }) {
   const [available, setAvailable] = useState(false)
@@ -73,11 +73,11 @@ function DownloadApp({ variant = 'card' }) {
     <div className="bg-gradient-to-r from-slate-50 to-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <img src={assetPath('icons/icon-192x192.png')} alt="" className="w-12 h-12 rounded-lg shadow-sm" />
+          <BrandText size="sm" variant="light" className="shrink-0" />
           <div>
             <p className="font-semibold text-gray-900">Download Desktop App</p>
             <p className="text-sm text-gray-600">
-              Install Inventory.co on Windows. Works fully offline — no browser, terminal, or internet needed.
+              Install Zach Apparel on Windows. Works fully offline — no browser, terminal, or internet needed.
             </p>
             {!checking && !available && (
               <p className="text-xs text-amber-700 mt-1">

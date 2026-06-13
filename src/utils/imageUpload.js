@@ -1,4 +1,5 @@
-const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
+export const MAX_FILE_SIZE_MB = 10
+const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 export function validateImageFile(file) {
@@ -7,7 +8,7 @@ export function validateImageFile(file) {
     return 'Please upload a JPG, PNG, WEBP, or GIF image'
   }
   if (file.size > MAX_FILE_SIZE) {
-    return 'Image must be 2MB or smaller'
+    return `Image must be ${MAX_FILE_SIZE_MB}MB or smaller`
   }
   return null
 }

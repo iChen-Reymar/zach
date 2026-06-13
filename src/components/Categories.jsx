@@ -92,7 +92,6 @@ function Categories() {
     try {
       const { error } = await categoryService.updateCategory(editingCategory.id, {
         name: updatedCategory.name,
-        item_count: updatedCategory.itemCount,
         image: updatedCategory.image || getDefaultImage(updatedCategory.name)
       })
       

@@ -40,12 +40,25 @@ export const orderService = {
 
   async createOrder(order) {
     try {
+      const unitPrice = Number(order.unit_price) || 0
+      const listUnitPrice = Number(order.list_unit_price) || unitPrice
+      const quantity = Number(order.quantity) || 0
+      const discount = Number(order.discount) || 0
+      const totalAmount = Number(order.total_amount) || unitPrice * quantity
+
       const orderData = {
         id: generateId(),
-        customer_id: order.customer_id,
+        customer_id: order.customer_id || null,
         product_id: order.product_id || null,
         product_name: order.product_name,
-        quantity: order.quantity,
+        quantity,
+        unit_price: unitPrice,
+        list_unit_price: listUnitPrice,
+        discount,
+        total_amount: totalAmount,
+        staff_id: order.staff_id || null,
+        staff_name: order.staff_name || null,
+        payment_method: order.payment_method || 'cash',
         order_date: order.order_date || new Date().toISOString()
       }
 

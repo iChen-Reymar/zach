@@ -178,7 +178,7 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
               {!editingProduct && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-gray-700 mb-3">
-                    Scan a barcode to auto-fill product details. If the product already exists, name, price, quantity, category, and image are filled automatically.
+                   
                   </p>
                   <button
                     type="button"
@@ -265,8 +265,7 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
               <ImageUploadField label="Product Image" value={formData.image} onChange={handleImageChange}>
                 <ExistingImagePicker
                   sections={[
-                    { label: 'Or select from existing products:', items: products },
-                    { label: 'Or select from existing categories:', items: categories }
+                    { label: 'Or select from existing products:', items: products }
                   ]}
                   selectedImage={formData.image}
                   onSelect={handleImageChange}

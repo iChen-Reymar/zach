@@ -4,6 +4,7 @@ import Layout from './Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
 import { customerService } from '../services/customerService'
+import { staffService } from '../services/staffService'
 import GetApp from './GetApp'
 
 function Settings() {
@@ -13,7 +14,6 @@ function Settings() {
   const [viewingUserId, setViewingUserId] = useState(null)
   const [viewingProfile, setViewingProfile] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -23,12 +23,26 @@ function Settings() {
   const [success, setSuccess] = useState('')
   const [customer, setCustomer] = useState(null)
   const [requestingApproval, setRequestingApproval] = useState(false)
+  const [ownPasswordForm, setOwnPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [staffPasswordForm, setStaffPasswordForm] = useState({
+    staffId: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [staffList, setStaffList] = useState([])
+  const [loadingStaff, setLoadingStaff] = useState(false)
+  const [changingOwnPassword, setChangingOwnPassword] = useState(false)
+  const [settingStaffPassword, setSettingStaffPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState('')
 
   // Check if viewing another user's profile
   const userIdParam = searchParams.get('userId')
   const isViewingOtherUser = userIdParam && userIdParam !== user?.id
-  const canEdit = isAdmin() && isViewingOtherUser
-
   // Fetch customer data for own profile
   const fetchCustomerData = async () => {
     if (!user?.id || isViewingOtherUser) return
@@ -79,80 +93,105 @@ function Settings() {
     fetchProfile()
   }, [userIdParam, user?.id, profile?.role])
 
+  useEffect(() => {
+    const fetchStaffList = async () => {
+      if (!isAdmin() || isViewingOtherUser) return
+      setLoadingStaff(true)
+      try {
+        const { data, error } = await staffService.getAllStaff()
+        if (error) throw error
+        setStaffList((data || []).filter((member) => member.role === 'Staff'))
+      } catch (err) {
+        console.error('Error fetching staff for password management:', err)
+      } finally {
+        setLoadingStaff(false)
+      }
+    }
+    fetchStaffList()
+  }, [user?.id, profile?.role, userIdParam])
+
   // Get display data
   const displayProfile = viewingProfile || profile
   const displayName = formData.name || displayProfile?.name || user?.user_metadata?.name || 'N/A'
   const displayEmail = formData.email || displayProfile?.email || user?.email || 'N/A'
   const displayRole = formData.role || displayProfile?.role || 'Customer'
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
+  const handleOwnPasswordChange = (e) => {
+    setOwnPasswordForm({
+      ...ownPasswordForm,
       [e.target.name]: e.target.value
     })
-    setError('')
-    setSuccess('')
+    setPasswordError('')
+    setPasswordSuccess('')
   }
 
-  const handleSave = async () => {
-    if (!canEdit || !viewingUserId) return
+  const handleStaffPasswordChange = (e) => {
+    setStaffPasswordForm({
+      ...staffPasswordForm,
+      [e.target.name]: e.target.value
+    })
+    setPasswordError('')
+    setPasswordSuccess('')
+  }
 
-    setSaving(true)
-    setError('')
-    setSuccess('')
+  const handleChangeOwnPassword = async (e) => {
+    e.preventDefault()
+    setPasswordError('')
+    setPasswordSuccess('')
 
+    const { currentPassword, newPassword, confirmPassword } = ownPasswordForm
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Please fill in all password fields')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match')
+      return
+    }
+
+    setChangingOwnPassword(true)
     try {
-      // Update profile
-      const { error: profileError } = await authService.updateProfile(viewingUserId, {
-        name: formData.name,
-        email: formData.email,
-        role: formData.role
-      })
+      const { error } = await authService.changeOwnPassword(user.id, currentPassword, newPassword)
+      if (error) throw error
 
-      if (profileError) throw profileError
-
-      // Also update customer record if exists
-      try {
-        const { data: customer } = await customerService.getCustomerById(viewingUserId)
-        if (customer) {
-          await customerService.updateCustomer(viewingUserId, {
-            name: formData.name,
-            email: formData.email,
-            role: formData.role
-          })
-        }
-      } catch (err) {
-        console.warn('Customer update failed (may not be a customer):', err)
-      }
-
-      setSuccess('Profile updated successfully!')
-      // Reload profile
-      const { data: updatedProfile } = await authService.getUserProfile(viewingUserId)
-      if (updatedProfile) {
-        setViewingProfile(updatedProfile)
-        setFormData({
-          name: updatedProfile.name || 'N/A',
-          email: updatedProfile.email || 'N/A',
-          role: updatedProfile.role || 'Customer'
-        })
-      }
+      setPasswordSuccess('Your password has been updated successfully.')
+      setOwnPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (err) {
-      console.error('Error updating profile:', err)
-      setError(err.message || 'Failed to update profile')
+      setPasswordError(err.message || 'Failed to change password')
     } finally {
-      setSaving(false)
+      setChangingOwnPassword(false)
     }
   }
 
-  const handleCancel = () => {
-    if (viewingProfile) {
-      setFormData({
-        name: viewingProfile.name || 'N/A',
-        email: viewingProfile.email || 'N/A',
-        role: viewingProfile.role || 'Customer'
-      })
+  const handleSetStaffPassword = async (e) => {
+    e.preventDefault()
+    setPasswordError('')
+    setPasswordSuccess('')
+
+    const { staffId, newPassword, confirmPassword } = staffPasswordForm
+    if (!staffId || !newPassword || !confirmPassword) {
+      setPasswordError('Please select a staff member and enter a new password')
+      return
     }
-    setError('')
-    setSuccess('')
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match')
+      return
+    }
+
+    setSettingStaffPassword(true)
+    try {
+      const { error, data } = await authService.setStaffPassword(user.id, staffId, newPassword)
+      if (error) throw error
+
+      const staffMember = staffList.find((member) => member.id === staffId)
+      setPasswordSuccess(
+        `Password set for ${staffMember?.name || 'staff member'}${data?.email ? ` (${data.email})` : ''}.`
+      )
+      setStaffPasswordForm({ staffId: '', newPassword: '', confirmPassword: '' })
+    } catch (err) {
+      setPasswordError(err.message || 'Failed to set staff password')
+    } finally {
+      setSettingStaffPassword(false)
+    }
   }
 
   const handleRequestApproval = async () => {
@@ -210,23 +249,6 @@ function Settings() {
               </button>
             )}
           </div>
-          {canEdit && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#357abd] transition-colors disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Messages */}
@@ -250,7 +272,7 @@ function Settings() {
         {/* User Details Card */}
         <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">User Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className={`grid grid-cols-1 ${isViewingOtherUser ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-4 sm:gap-6`}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Name*
@@ -258,15 +280,10 @@ function Settings() {
               <input
                 type="text"
                 name="name"
-                value={canEdit ? formData.name : displayName}
-                onChange={handleChange}
-                disabled={!canEdit}
-                readOnly={!canEdit}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                  canEdit
-                    ? 'bg-white text-gray-900 focus:outline-none focus:border-primary-blue'
-                    : 'bg-gray-50 text-gray-700 cursor-not-allowed'
-                }`}
+                value={displayName}
+                disabled
+                readOnly
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
               />
             </div>
             <div>
@@ -276,33 +293,17 @@ function Settings() {
               <input
                 type="email"
                 name="email"
-                value={canEdit ? formData.email : displayEmail}
-                onChange={handleChange}
-                disabled={!canEdit}
-                readOnly={!canEdit}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                  canEdit
-                    ? 'bg-white text-gray-900 focus:outline-none focus:border-primary-blue'
-                    : 'bg-gray-50 text-gray-700 cursor-not-allowed'
-                }`}
+                value={displayEmail}
+                disabled
+                readOnly
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Role*
-              </label>
-              {canEdit ? (
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:border-primary-blue"
-                >
-                  <option value="Customer">Customer</option>
-                  <option value="Staff">Staff</option>
-                  <option value="Admin">Admin</option>
-                </select>
-              ) : (
+            {!isViewingOtherUser && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Role*
+                </label>
                 <input
                   type="text"
                   value={displayRole}
@@ -310,8 +311,8 @@ function Settings() {
                   readOnly
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
                 />
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Approval Request Section - Only for customers who are not approved */}
@@ -365,6 +366,142 @@ function Settings() {
           )}
 
         </div>
+
+        {isAdmin() && !isViewingOtherUser && (
+          <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+            {(passwordError || passwordSuccess) && (
+              <div>
+                {passwordError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                    {passwordError}
+                  </div>
+                )}
+                {passwordSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                    {passwordSuccess}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Change My Password</h2>
+              <p className="text-sm text-gray-600 mb-4 sm:mb-6">
+                Update your admin login password. You will need your current password.
+              </p>
+              <form onSubmit={handleChangeOwnPassword} className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    value={ownPasswordForm.currentPassword}
+                    onChange={handleOwnPasswordChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                    autoComplete="current-password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    value={ownPasswordForm.newPassword}
+                    onChange={handleOwnPasswordChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                    autoComplete="new-password"
+                    minLength={6}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={ownPasswordForm.confirmPassword}
+                    onChange={handleOwnPasswordChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                    autoComplete="new-password"
+                    minLength={6}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <button
+                    type="submit"
+                    disabled={changingOwnPassword}
+                    className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#357abd] transition-colors disabled:opacity-50"
+                  >
+                    {changingOwnPassword ? 'Updating...' : 'Update My Password'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Staff Password Management</h2>
+              <p className="text-sm text-gray-600 mb-4 sm:mb-6">
+            
+              </p>
+              {loadingStaff ? (
+                <p className="text-sm text-gray-500">Loading staff...</p>
+              ) : staffList.length === 0 ? (
+                <p className="text-sm text-gray-500">No staff members found. Add staff from the Staffs page first.</p>
+              ) : (
+                <form onSubmit={handleSetStaffPassword} className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Staff Member</label>
+                    <select
+                      name="staffId"
+                      value={staffPasswordForm.staffId}
+                      onChange={handleStaffPasswordChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-primary-blue"
+                    >
+                      <option value="">Select staff member</option>
+                      {staffList.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name} ({member.email || 'no email'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      value={staffPasswordForm.newPassword}
+                      onChange={handleStaffPasswordChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                      autoComplete="new-password"
+                      minLength={6}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={staffPasswordForm.confirmPassword}
+                      onChange={handleStaffPasswordChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                      autoComplete="new-password"
+                      minLength={6}
+                    />
+                  </div>
+                  <div className="md:col-span-3">
+                    <button
+                      type="submit"
+                      disabled={settingStaffPassword}
+                      className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#357abd] transition-colors disabled:opacity-50"
+                    >
+                      {settingStaffPassword ? 'Saving...' : 'Set Staff Password'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   )
