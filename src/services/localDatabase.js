@@ -98,7 +98,6 @@ const SCHEMA = `
     order_date TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
-  CREATE INDEX IF NOT EXISTS idx_orders_staff ON orders(staff_id);
   CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date);
 
   CREATE TABLE IF NOT EXISTS meta (
@@ -258,7 +257,8 @@ function migrateSchema() {
   if (orderCols.length === 0) return
 
   const addOrderColumn = (name, definition) => {
-    if (!orderCols.some((col) => col.name === name)) {
+    const cols = queryAll('PRAGMA table_info(orders)')
+    if (!cols.some((col) => col.name === name)) {
       db.run(`ALTER TABLE orders ADD COLUMN ${name} ${definition}`)
     }
   }
@@ -271,8 +271,13 @@ function migrateSchema() {
   addOrderColumn('staff_name', 'TEXT')
   addOrderColumn('payment_method', "TEXT DEFAULT 'cash'")
 
-  db.run('CREATE INDEX IF NOT EXISTS idx_orders_staff ON orders(staff_id)')
-  db.run('CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)')
+  const updatedOrderCols = queryAll('PRAGMA table_info(orders)')
+  if (updatedOrderCols.some((col) => col.name === 'staff_id')) {
+    db.run('CREATE INDEX IF NOT EXISTS idx_orders_staff ON orders(staff_id)')
+  }
+  if (updatedOrderCols.some((col) => col.name === 'order_date')) {
+    db.run('CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)')
+  }
 }
 
 function rowToStaff(row) {
@@ -478,7 +483,11 @@ async function initDatabaseInternal() {
     db = new SQL.Database()
   }
 
-  db.run(SCHEMA)
+  try {
+    db.run(SCHEMA)
+  } catch (err) {
+    console.warn('Base schema apply warning (will run migrations):', err?.message || err)
+  }
   migrateSchema()
   await migrateFromLegacyIndexedDB()
   await ensureDefaultAdmin()
