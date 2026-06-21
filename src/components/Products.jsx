@@ -6,7 +6,6 @@ import SaleModal from './SaleModal'
 import { useAuth } from '../contexts/AuthContext'
 import { productService } from '../services/productService'
 import { categoryService } from '../services/categoryService'
-import { assetPath } from '../utils/assetPath'
 
 function Products() {
   const navigate = useNavigate()
@@ -112,6 +111,34 @@ function Products() {
     if (stock <= 2) return 'Low stock'
     return 'Active'
   }
+
+  const renderProductImage = (product, className = 'w-full h-full object-cover') => {
+    if (!product.image) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 font-semibold">
+          {product.name.charAt(0).toUpperCase()}
+        </div>
+      )
+    }
+
+    return (
+      <img
+        src={product.image}
+        alt={product.name}
+        className={className}
+        onError={(e) => {
+          e.target.style.display = 'none'
+          e.target.nextElementSibling?.classList.remove('hidden')
+        }}
+      />
+    )
+  }
+
+  const renderProductImageFallback = (product) => (
+    <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-200 text-gray-500 font-semibold">
+      {product.name.charAt(0).toUpperCase()}
+    </div>
+  )
 
   const handleAddProduct = async (newProduct) => {
     try {
@@ -347,15 +374,9 @@ function Products() {
                     <tr key={product.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                            <img
-                              src={product.image || assetPath('images/Fender-P-Bass-electric-guitar.webp')}
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = `https://via.placeholder.com/48x48?text=${product.name.charAt(0)}`
-                              }}
-                            />
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 relative">
+                            {renderProductImage(product)}
+                            {product.image ? renderProductImageFallback(product) : null}
                           </div>
                           <span className="font-medium text-gray-900">{product.name}</span>
                         </div>
@@ -422,15 +443,9 @@ function Products() {
               <div key={product.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                 {/* Product Image and Header */}
                 <div className="relative">
-                  <div className="w-full h-48 bg-gray-200 overflow-hidden">
-                    <img
-                      src={product.image || assetPath('images/Fender-P-Bass-electric-guitar.webp')}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = `https://via.placeholder.com/400x300?text=${product.name.charAt(0)}`
-                      }}
-                    />
+                  <div className="w-full h-48 bg-gray-200 overflow-hidden relative">
+                    {renderProductImage(product)}
+                    {product.image ? renderProductImageFallback(product) : null}
                   </div>
                   <div className="absolute top-2 right-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(product.status)}`}>

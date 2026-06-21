@@ -34,18 +34,12 @@ function LandingPage() {
           <p className="text-blue-200/80 text-base sm:text-lg max-w-md mx-auto mb-8">
             Manage products, stock, and sales in one place.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex justify-center">
             <button
               onClick={() => navigate('/signup')}
               className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold"
             >
               Get Started
-            </button>
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full sm:w-auto px-6 py-3 border border-white/20 hover:bg-white/5 rounded-lg font-medium"
-            >
-              Login
             </button>
           </div>
         </section>

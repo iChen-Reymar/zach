@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Zach Apparel",
-  "short_name": "Zach Apparel",
-  "description": "Zach Apparel inventory management system.",
+  "name": "ZCH Footwear Shop",
+  "short_name": "ZCH Footwear",
+  "description": "ZCH Footwear Shop inventory management system.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#1e293b",

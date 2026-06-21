@@ -1,12 +1,15 @@
 Add-Type -AssemblyName System.Drawing
 
 $iconsDir = Join-Path $PSScriptRoot "..\public\icons"
+$buildDir = Join-Path $PSScriptRoot "..\build"
 $logoPath = Join-Path $iconsDir "logo.png"
 
 if (-not (Test-Path $logoPath)) {
     Write-Error "logo.png not found at $logoPath"
     exit 1
 }
+
+New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 
 function New-SquareIcon($size) {
     $source = [System.Drawing.Image]::FromFile((Resolve-Path $logoPath))
@@ -37,6 +40,14 @@ function New-SquareIcon($size) {
     Write-Host "Created $outPath"
 }
 
-foreach ($size in @(192, 512)) {
+foreach ($size in @(16, 24, 32, 48, 64, 128, 192, 256, 512)) {
     New-SquareIcon $size
 }
+
+foreach ($size in @(16, 24, 32, 48, 64, 128, 256)) {
+    $source = Join-Path $iconsDir ("icon-{0}x{0}.png" -f $size)
+    $target = Join-Path $buildDir ("icon-{0}x{0}.png" -f $size)
+    Copy-Item $source $target -Force
+}
+
+Write-Host "Icon PNG sizes ready in public/icons and build/"

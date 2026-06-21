@@ -4,7 +4,6 @@ import Layout from './Layout'
 import AddCategoryModal from './AddCategoryModal'
 import { useAuth } from '../contexts/AuthContext'
 import { categoryService } from '../services/categoryService'
-import { assetPath } from '../utils/assetPath'
 
 function Categories() {
   const navigate = useNavigate()
@@ -56,23 +55,12 @@ function Categories() {
     return `Last update ${month} ${day}, ${year} at ${hours}:${minutes} ${ampm}`
   }
 
-  const getDefaultImage = (categoryName) => {
-    const categoryImages = {
-      'Base Guitar': assetPath('images/Fender-P-Bass-electric-guitar.webp'),
-      'Acoustic Guitar': assetPath('images/cac23fb4865901db2c1ba83534e45ee1.jpg_720x720q80.jpg'),
-      'Piano Keyboard': assetPath('images/products_2FF03-097-1910-032_2FF03-097-1910-032_1719213023050_1200x1200 (1).webp'),
-      'Electric Guitar': assetPath('images/V6MRLB.webp'),
-      'Drum': assetPath('images/drum-kit-standard.eb6cdcf0e2d2b6c360fb.png')
-    }
-    return categoryImages[categoryName] || assetPath('images/Fender-P-Bass-electric-guitar.webp')
-  }
-
   const handleAddCategory = async (newCategory) => {
     try {
       const { error } = await categoryService.createCategory({
         name: newCategory.name,
         itemCount: newCategory.itemCount,
-        image: newCategory.image || getDefaultImage(newCategory.name)
+        image: newCategory.image || ''
       })
       
       if (error) throw error
@@ -92,7 +80,7 @@ function Categories() {
     try {
       const { error } = await categoryService.updateCategory(editingCategory.id, {
         name: updatedCategory.name,
-        image: updatedCategory.image || getDefaultImage(updatedCategory.name)
+        image: updatedCategory.image || ''
       })
       
       if (error) throw error
@@ -170,15 +158,23 @@ function Categories() {
               >
                 <div className="flex items-center gap-4">
                   {/* Category Image */}
-                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                    <img
-                      src={category.image || getDefaultImage(category.name)}
-                      alt={category.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = `https://via.placeholder.com/64x64?text=${category.name.charAt(0)}`
-                      }}
-                    />
+                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 relative">
+                    {category.image ? (
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                          e.target.nextElementSibling?.classList.remove('hidden')
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`absolute inset-0 flex items-center justify-center text-gray-500 font-semibold ${category.image ? 'hidden' : ''}`}
+                    >
+                      {category.name.charAt(0).toUpperCase()}
+                    </div>
                   </div>
 
                   {/* Category Info */}

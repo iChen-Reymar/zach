@@ -16,7 +16,7 @@ function PhoneAppCard() {
           <div>
             <p className="font-semibold text-gray-900 text-lg">Use on Phone</p>
             <p className="text-sm text-gray-600 mt-1">
-              Zach Apparel runs in your phone browser. You do <strong>not</strong> need the Windows
+              ZCH Footwear Shop runs in your phone browser. You do <strong>not</strong> need the Windows
               file — that only works on PC.
             </p>
           </div>

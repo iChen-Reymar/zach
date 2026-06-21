@@ -22,7 +22,7 @@ export async function isInstallerAvailable() {
 export function downloadDesktopApp() {
   if (isMobileDevice()) {
     window.alert(
-      'The Windows installer (.exe) only works on a PC.\n\nOn your phone: tap "Get Started" or "Login" to use Zach Apparel in your browser.'
+      'The Windows installer (.exe) only works on a PC.\n\nOn your phone: tap "Get Started" or "Login" to use ZCH Footwear Shop in your browser.'
     )
     return
   }

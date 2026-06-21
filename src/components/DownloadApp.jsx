@@ -77,7 +77,7 @@ function DownloadApp({ variant = 'card' }) {
           <div>
             <p className="font-semibold text-gray-900">Download Desktop App</p>
             <p className="text-sm text-gray-600">
-              Install Zach Apparel on Windows. Works fully offline — no browser, terminal, or internet needed.
+              Install ZCH Footwear Shop on Windows. Works fully offline — no browser, terminal, or internet needed.
             </p>
             {!checking && !available && (
               <p className="text-xs text-amber-700 mt-1">

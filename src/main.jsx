@@ -4,6 +4,7 @@ import App from './App.jsx'
 import './index.css'
 import { initDatabase, resetLocalDatabase } from './services/localDatabase'
 import { isElectron } from './utils/isElectron'
+import { assetPath } from './utils/assetPath'
 
 async function setupServiceWorker() {
   if (isElectron()) return
@@ -23,8 +24,15 @@ function LoadingScreen() {
   return (
     <div className="w-full min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
       <div className="text-center text-white">
+        <div className="inline-block bg-white rounded-xl px-4 py-3 mb-6">
+          <img
+            src={assetPath('icons/logo.png')}
+            alt="ZCH Footwear Shop"
+            className="h-14 w-auto max-w-[220px] object-contain block"
+          />
+        </div>
         <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-lg font-medium">Loading Zach Apparel...</p>
+        <p className="text-lg font-medium">Loading ZCH Footwear Shop...</p>
         <p className="text-sm text-blue-200 mt-1">Starting local database</p>
       </div>
     </div>
@@ -51,7 +59,7 @@ function ErrorScreen({ message, onReset }) {
   return (
     <div className="w-full min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-6">
       <div className="max-w-md text-center text-white bg-white/10 rounded-xl p-8 backdrop-blur">
-        <h2 className="text-xl font-bold mb-2">Unable to start Zach Apparel</h2>
+        <h2 className="text-xl font-bold mb-2">Unable to start ZCH Footwear Shop</h2>
         <p className="text-blue-100 text-sm mb-4">{message}</p>
         <p className="text-blue-200/80 text-xs mb-4">
           This app saves data on your phone and works offline. If an update broke the local database, reset it below.

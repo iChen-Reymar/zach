@@ -34,6 +34,12 @@ function registerDatabaseHandlers() {
   })
 }
 
+function getAppIcon() {
+  const ico = path.join(__dirname, '../build/icon.ico')
+  const png = path.join(__dirname, '../public/icons/icon-512x512.png')
+  return fs.existsSync(ico) ? ico : png
+}
+
 function createWindow() {
   const distIndex = path.join(__dirname, '../dist/index.html')
 
@@ -44,7 +50,7 @@ function createWindow() {
     minHeight: 600,
     title: 'ZCH Footwear Shop',
     autoHideMenuBar: true,
-    icon: path.join(__dirname, '../public/icons/icon-512x512.png'),
+    icon: getAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

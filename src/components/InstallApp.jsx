@@ -33,7 +33,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
             </div>
             <div>
               <p className="font-semibold text-gray-900">App Installed</p>
-              <p className="text-sm text-gray-600">Zach Apparel is installed on this device.</p>
+              <p className="text-sm text-gray-600">ZCH Footwear Shop is installed on this device.</p>
             </div>
           </div>
         </div>
@@ -65,7 +65,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
         <div className="flex items-start gap-3">
           <BrandText size="sm" variant="light" className="shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900">Install Zach Apparel</p>
+            <p className="font-semibold text-gray-900">Install ZCH Footwear Shop</p>
             <p className="text-sm text-gray-600 mt-1">
               Tap Share, then &quot;Add to Home Screen&quot; to install the app.
             </p>
@@ -87,7 +87,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
           <div className="flex items-center gap-3">
             <BrandText size="sm" variant="light" className="shrink-0" />
             <div>
-              <p className="font-semibold text-gray-900">Install Zach Apparel</p>
+              <p className="font-semibold text-gray-900">Install ZCH Footwear Shop</p>
               <p className="text-sm text-gray-600">
                 {isIOSDevice
                   ? 'Tap Share, then "Add to Home Screen".'
@@ -119,7 +119,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
       <div className="flex items-start gap-3">
         <BrandText size="sm" variant="light" className="shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900">Install Zach Apparel</p>
+          <p className="font-semibold text-gray-900">Install ZCH Footwear Shop</p>
           <p className="text-sm text-gray-600 mt-1">
             Add to your home screen for offline access and a native app feel.
           </p>

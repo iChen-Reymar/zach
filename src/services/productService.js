@@ -30,12 +30,6 @@ export const productService = {
 
   async createProduct(product) {
     try {
-      let image = product.image
-      if (product.category_id && !image) {
-        const category = await localDatabase.getCategoryById(product.category_id)
-        if (category) image = category.image
-      }
-
       const data = {
         id: generateId(),
         name: product.name,
@@ -44,7 +38,7 @@ export const productService = {
         status: getProductStatus(product.stock),
         category_id: product.category_id,
         category_name: product.category_name,
-        image: image || null,
+        image: product.image || null,
         barcode: product.barcode || null,
         created_at: new Date().toISOString()
       }

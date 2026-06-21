@@ -1,0 +1,17 @@
+[
+  {
+    "id": "652ef408-d027-4fd6-a775-cf8028ec4384",
+    "customer_id": null,
+    "product_id": "dbd600ce-8f65-48ef-a1ba-06ccdd6c8274",
+    "product_name": "wsss",
+    "quantity": 1,
+    "unit_price": 332,
+    "list_unit_price": 332,
+    "discount": 0,
+    "total_amount": 332,
+    "staff_id": "21753396-3328-4ed0-bd86-a649107cee2b",
+    "staff_name": "Administrator",
+    "payment_method": "cash",
+    "order_date": "2026-06-18T02:57:20.568Z"
+  }
+]

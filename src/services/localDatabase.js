@@ -295,6 +295,21 @@ function migrateSchema() {
   if (hasColumn('orders', 'order_date')) {
     runSafe('orders-date-index', () => db.run('CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)'))
   }
+
+  clearLegacySampleImages()
+}
+
+function clearLegacySampleImages() {
+  if (getMetaValue('clearedLegacyImages') === '1') return
+
+  if (getTableColumns('categories').length > 0) {
+    runSafe('clear-category-images', () => db.run("UPDATE categories SET image = NULL WHERE image IS NOT NULL AND image != ''"))
+  }
+  if (getTableColumns('products').length > 0) {
+    runSafe('clear-product-images', () => db.run("UPDATE products SET image = NULL WHERE image IS NOT NULL AND image != ''"))
+  }
+
+  setMetaValue('clearedLegacyImages', '1')
 }
 
 function rowToUser(row) {

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "dbd600ce-8f65-48ef-a1ba-06ccdd6c8274",
+    "name": "wsss",
+    "stock": 11,
+    "price": 332,
+    "status": "Active",
+    "category_id": "c301cb81-8dc3-45e9-aedc-2a6254aab11f",
+    "category_name": "qwe",
+    "image": "[image data, 169935 chars]",
+    "barcode": null,
+    "created_at": "2026-06-18T02:56:33.682Z"
+  }
+]

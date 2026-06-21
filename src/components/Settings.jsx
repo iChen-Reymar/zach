@@ -5,7 +5,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
 import { customerService } from '../services/customerService'
 import { staffService } from '../services/staffService'
-import GetApp from './GetApp'
 
 function Settings() {
   const { user, profile, isAdmin } = useAuth()
@@ -260,12 +259,6 @@ function Settings() {
         {success && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
             {success}
-          </div>
-        )}
-
-        {!isViewingOtherUser && (
-          <div className="mb-4 sm:mb-6 space-y-4">
-            <GetApp variant="card" />
           </div>
         )}
 

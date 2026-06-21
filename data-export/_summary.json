@@ -1,0 +1,14 @@
+{
+  "source": "C:\\Users\\Admin\\AppData\\Roaming\\ZCH Footwear Shop\\inventory.db",
+  "exportedAt": "2026-06-18T03:00:18.781Z",
+  "tables": {
+    "users": 1,
+    "profiles": 1,
+    "categories": 1,
+    "products": 1,
+    "staff": 0,
+    "customers": 0,
+    "orders": 1,
+    "meta": 2
+  }
+}

@@ -7,7 +7,6 @@ import { productService } from '../services/productService'
 import { orderService } from '../services/orderService'
 import { statsService } from '../services/statsService'
 import { useAuth } from '../contexts/AuthContext'
-import { assetPath } from '../utils/assetPath'
 
 function Home() {
   const navigate = useNavigate()
@@ -63,17 +62,31 @@ function Home() {
   const topCategories = categories.slice(0, 4)
   const formatMoney = (n) => `₱${(Number(n) || 0).toFixed(2)}`
 
-  const getDefaultImage = (categoryName) => {
-    const categoryImages = {
-      'Base Guitar': assetPath('images/Fender-P-Bass-electric-guitar.webp'),
-      'Acoustic Guitar': assetPath('images/cac23fb4865901db2c1ba83534e45ee1.jpg_720x720q80.jpg'),
-      'Piano Keyboard': assetPath('images/products_2FF03-097-1910-032_2FF03-097-1910-032_1719213023050_1200x1200 (1).webp'),
-      'Electric Guitar': assetPath('images/V6MRLB.webp'),
-      'Drum': assetPath('images/drum-kit-standard.eb6cdcf0e2d2b6c360fb.png'),
-      'Guitar': assetPath('images/V6MRLB.webp')
+  const renderCategoryImage = (category) => {
+    if (category.image) {
+      return (
+        <img
+          src={category.image}
+          alt={category.name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.style.display = 'none'
+            e.target.nextElementSibling?.classList.remove('hidden')
+          }}
+        />
+      )
     }
-    return categoryImages[categoryName] || assetPath('images/Fender-P-Bass-electric-guitar.webp')
+
+    return null
   }
+
+  const renderCategoryFallback = (category) => (
+    <div
+      className={`w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 font-semibold text-xl ${category.image ? 'hidden' : ''}`}
+    >
+      {category.name.charAt(0).toUpperCase()}
+    </div>
+  )
 
   return (
     <Layout pageTitle="home">
@@ -164,16 +177,10 @@ function Home() {
                   <button
                     key={category.id}
                     onClick={() => navigate('/categories')}
-                    className="aspect-square bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity cursor-pointer"
+                    className="aspect-square bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity cursor-pointer relative"
                   >
-                    <img
-                      src={category.image || getDefaultImage(category.name)}
-                      alt={category.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = `https://via.placeholder.com/150?text=${category.name.charAt(0)}`
-                      }}
-                    />
+                    {renderCategoryImage(category)}
+                    {renderCategoryFallback(category)}
                   </button>
                 ))}
               </div>

@@ -1,34 +1,11 @@
 import { useState, useEffect } from 'react'
-import ExistingImagePicker from './ExistingImagePicker'
 import ImageUploadField from './ImageUploadField'
-import { categoryService } from '../services/categoryService'
 
 function AddCategoryModal({ isOpen, onClose, onAddCategory, editingCategory }) {
   const [formData, setFormData] = useState({
     name: '',
     image: ''
   })
-  const [categories, setCategories] = useState([])
-  const [loadingImages, setLoadingImages] = useState(false)
-
-  useEffect(() => {
-    if (!isOpen) return
-
-    const fetchImageSources = async () => {
-      setLoadingImages(true)
-      try {
-        const { data } = await categoryService.getAllCategories()
-        setCategories(data || [])
-      } catch (err) {
-        console.error('Error loading images:', err)
-        setCategories([])
-      } finally {
-        setLoadingImages(false)
-      }
-    }
-
-    fetchImageSources()
-  }, [isOpen])
 
   useEffect(() => {
     if (editingCategory) {
@@ -104,19 +81,7 @@ function AddCategoryModal({ isOpen, onClose, onAddCategory, editingCategory }) {
               />
             </div>
 
-            <ImageUploadField label="Category Image" value={formData.image} onChange={handleImageChange}>
-              {loadingImages ? (
-                <p className="text-xs text-gray-400">Loading existing images...</p>
-              ) : (
-                <ExistingImagePicker
-                  sections={[
-                    { label: 'Or select from existing categories:', items: categories }
-                  ]}
-                  selectedImage={formData.image}
-                  onSelect={handleImageChange}
-                />
-              )}
-            </ImageUploadField>
+            <ImageUploadField label="Category Image" value={formData.image} onChange={handleImageChange} />
           </div>
 
           <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">

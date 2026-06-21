@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import ExistingImagePicker from './ExistingImagePicker'
 import ImageUploadField from './ImageUploadField'
 import BarcodeScanner from './BarcodeScanner'
 import { lookupProductByBarcode } from '../utils/barcodeLookup'
@@ -18,12 +17,6 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
   const [lookingUp, setLookingUp] = useState(false)
   const [matchedProductId, setMatchedProductId] = useState(null)
   const stockInputRef = useRef(null)
-
-  const getCategoryImage = (categoryName) => {
-    if (!categoryName || !categories.length) return null
-    const category = categories.find((cat) => cat.name === categoryName)
-    return category?.image || null
-  }
 
   useEffect(() => {
     if (editingProduct) {
@@ -49,16 +42,6 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
     setScannerOpen(false)
     setMatchedProductId(null)
   }, [editingProduct, isOpen])
-
-  useEffect(() => {
-    if (formData.category && !formData.image && !editingProduct) {
-      const categoryImg = getCategoryImage(formData.category)
-      if (categoryImg) {
-        setFormData((prev) => ({ ...prev, image: categoryImg }))
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.category])
 
   const categoryNames = categories.map((cat) => cat.name)
 
@@ -127,13 +110,11 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
   const handleSubmit = (e) => {
     e.preventDefault()
     if (formData.name && formData.stock && formData.category) {
-      const finalImage = formData.image || getCategoryImage(formData.category) || ''
-
       onAddProduct({
         ...formData,
         stock: parseInt(formData.stock, 10),
         price: parseFloat(formData.price) || 0,
-        image: finalImage,
+        image: formData.image || '',
         barcode: formData.barcode || null,
         existingProductId: matchedProductId || editingProduct?.id || null
       })
@@ -262,15 +243,7 @@ function AddProductModal({ isOpen, onClose, onAddProduct, editingProduct, catego
                 </select>
               </div>
 
-              <ImageUploadField label="Product Image" value={formData.image} onChange={handleImageChange}>
-                <ExistingImagePicker
-                  sections={[
-                    { label: 'Or select from existing products:', items: products }
-                  ]}
-                  selectedImage={formData.image}
-                  onSelect={handleImageChange}
-                />
-              </ImageUploadField>
+              <ImageUploadField label="Product Image" value={formData.image} onChange={handleImageChange} />
             </div>
 
             <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">

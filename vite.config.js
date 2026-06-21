@@ -13,7 +13,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['icons/**/*', 'icons/logo.png', 'images/**/*', 'sql-wasm.wasm'],
+      includeAssets: ['icons/**/*', 'icons/logo.png', 'sql-wasm.wasm'],
       manifest: false,
       devOptions: {
         enabled: false
