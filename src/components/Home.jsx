@@ -5,7 +5,6 @@ import AllOrdersModal from './AllOrdersModal'
 import { categoryService } from '../services/categoryService'
 import { productService } from '../services/productService'
 import { orderService } from '../services/orderService'
-import { statsService } from '../services/statsService'
 import { useAuth } from '../contexts/AuthContext'
 
 function Home() {
@@ -14,7 +13,6 @@ function Home() {
   const [categories, setCategories] = useState([])
   const [lowStockCount, setLowStockCount] = useState(0)
   const [orders, setOrders] = useState([])
-  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isAllOrdersModalOpen, setIsAllOrdersModalOpen] = useState(false)
 
@@ -44,11 +42,6 @@ function Home() {
         setOrders([])
       } else {
         setOrders(ordersData || [])
-      }
-
-      if (canManageSales) {
-        const allStats = await statsService.getAllPeriodStats()
-        setStats(allStats)
       }
     } catch (err) {
       console.error('Error fetching data:', err)
@@ -95,37 +88,6 @@ function Home() {
         onClose={() => setIsAllOrdersModalOpen(false)}
       />
       <div className="ui-page">
-        {canManageSales && stats && (
-          <div className="mb-4 sm:mb-6">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-bold text-gray-900">Sales Statistics</h2>
-              <button
-                onClick={() => navigate('/reports')}
-                className="min-h-[44px] px-2 text-primary-blue hover:underline text-sm font-medium"
-              >
-                View full report
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-gray-600">Today</p>
-                <p className="text-2xl font-bold text-green-700">{formatMoney(stats.daily.income)}</p>
-                <p className="text-xs text-gray-500">{stats.daily.transactions} sales</p>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-gray-600">This Week</p>
-                <p className="text-2xl font-bold text-primary-blue">{formatMoney(stats.weekly.income)}</p>
-                <p className="text-xs text-gray-500">{stats.weekly.transactions} sales</p>
-              </div>
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                <p className="text-sm text-gray-600">This Month</p>
-                <p className="text-2xl font-bold text-indigo-700">{formatMoney(stats.monthly.income)}</p>
-                <p className="text-xs text-gray-500">{stats.monthly.transactions} sales</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
           <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Stock numbers</h2>

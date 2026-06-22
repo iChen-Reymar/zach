@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from './Layout'
 import SalesDateRangeModal from './SalesDateRangeModal'
+import PayUtangModal from './PayUtangModal'
 import { useAuth } from '../contexts/AuthContext'
 import { statsService } from '../services/statsService'
 import { formatDateRange } from '../utils/dateRange'
+import { formatPaymentMethod, isUtangPayment, isUtangPaid, isUtangUnpaid, isUtangPartial, getUtangPaidAmount, getUtangRemaining } from '../utils/paymentMethod'
 
 const PERIODS = [
   { id: 'daily', label: 'Today' },
@@ -21,6 +23,7 @@ function Reports() {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [payUtangOrder, setPayUtangOrder] = useState(null)
 
   const canAccess = isAdmin() || isStaff()
   const isCustomRange = period === 'custom' && dateRange.start && dateRange.end
@@ -83,6 +86,63 @@ function Reports() {
 
   const formatMoney = (amount) => `₱${(Number(amount) || 0).toFixed(2)}`
 
+  const renderUtangStatus = (order) => {
+    if (isUtangPaid(order)) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+          Paid · {formatPaymentMethod(order.utang_paid_method)}
+        </span>
+      )
+    }
+    if (isUtangPartial(order)) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
+          Partial · {formatMoney(getUtangRemaining(order))} left
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+        Pending
+      </span>
+    )
+  }
+
+  const renderUtangAmount = (order) => {
+    if (isUtangPartial(order)) {
+      return (
+        <div>
+          <p className="font-semibold text-amber-700">{formatMoney(getUtangRemaining(order))} left</p>
+          <p className="text-xs text-green-700">{formatMoney(getUtangPaidAmount(order))} paid</p>
+        </div>
+      )
+    }
+    return <span className="font-semibold text-amber-700">{formatMoney(order.total_amount)}</span>
+  }
+
+  const renderPayUtangButton = (order) => {
+    if (isUtangPaid(order)) return null
+
+    return (
+      <button
+        type="button"
+        onClick={() => setPayUtangOrder(order)}
+        className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+        title="Mark as paid"
+        aria-label={`Pay utang for ${order.debtor_name || 'customer'}`}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      </button>
+    )
+  }
+
   const reportTitle = isCustomRange
     ? formatDateRange(dateRange.start, dateRange.end)
     : PERIODS.find((p) => p.id === period)?.label
@@ -98,11 +158,17 @@ function Reports() {
         endDate={dateRange.end}
         onRangeChange={handleRangeChange}
       />
+      <PayUtangModal
+        isOpen={!!payUtangOrder}
+        onClose={() => setPayUtangOrder(null)}
+        order={payUtangOrder}
+        onPaid={loadReport}
+      />
       <div className="ui-page">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sales Reports</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Income, transactions, and low stock — updated when staff record sales.
+            Income, transactions, and utang — updated when staff record sales.
           </p>
         </div>
 
@@ -111,17 +177,32 @@ function Reports() {
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <p className="text-sm text-gray-500">Today</p>
               <p className="text-2xl font-bold text-green-600">{formatMoney(summary.daily.income)}</p>
-              <p className="text-xs text-gray-500 mt-1">{summary.daily.transactions} transactions</p>
+              <p className="text-xs text-gray-500 mt-1">{summary.daily.paidTransactions} paid sales</p>
+              {summary.daily.utangTotal > 0 && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Utang: {formatMoney(summary.daily.utangTotal)} ({summary.daily.utangTransactions})
+                </p>
+              )}
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <p className="text-sm text-gray-500">This Week</p>
               <p className="text-2xl font-bold text-primary-blue">{formatMoney(summary.weekly.income)}</p>
-              <p className="text-xs text-gray-500 mt-1">{summary.weekly.transactions} transactions</p>
+              <p className="text-xs text-gray-500 mt-1">{summary.weekly.paidTransactions} paid sales</p>
+              {summary.weekly.utangTotal > 0 && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Utang: {formatMoney(summary.weekly.utangTotal)} ({summary.weekly.utangTransactions})
+                </p>
+              )}
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <p className="text-sm text-gray-500">This Month</p>
               <p className="text-2xl font-bold text-indigo-600">{formatMoney(summary.monthly.income)}</p>
-              <p className="text-xs text-gray-500 mt-1">{summary.monthly.transactions} transactions</p>
+              <p className="text-xs text-gray-500 mt-1">{summary.monthly.paidTransactions} paid sales</p>
+              {summary.monthly.utangTotal > 0 && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Utang: {formatMoney(summary.monthly.utangTotal)} ({summary.monthly.utangTransactions})
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -173,14 +254,21 @@ function Reports() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-gray-600">Total Income</p>
+                <p className="text-sm text-gray-600">Paid Income</p>
                 <p className="text-2xl sm:text-3xl font-bold text-green-700">{formatMoney(report.income)}</p>
+                <p className="text-xs text-gray-500 mt-1">{report.paidTransactions} paid sales</p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-gray-600">Total Utang</p>
+                <p className="text-2xl sm:text-3xl font-bold text-amber-700">{formatMoney(report.utangTotal)}</p>
+                <p className="text-xs text-gray-500 mt-1">{report.utangTransactions} utang sales</p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-gray-600">Transactions</p>
-                <p className="text-2xl sm:text-3xl font-bold text-primary-blue">{report.transactions}</p>
+                <p className="text-sm text-gray-600">Total Sales</p>
+                <p className="text-2xl sm:text-3xl font-bold text-primary-blue">{formatMoney(report.totalSales)}</p>
+                <p className="text-xs text-gray-500 mt-1">{report.transactions} all transactions</p>
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <p className="text-sm text-gray-600">Items Sold</p>
@@ -204,6 +292,7 @@ function Reports() {
                       <tr className="border-b border-gray-200 text-left text-gray-600">
                         <th>Staff</th>
                         <th>Income</th>
+                        <th>Utang</th>
                         <th>Transactions</th>
                         <th>Items Sold</th>
                       </tr>
@@ -213,6 +302,7 @@ function Reports() {
                         <tr key={row.staffName} className="border-b border-gray-100">
                           <td className="font-medium">{row.staffName}</td>
                           <td className="text-green-700 font-semibold">{formatMoney(row.income)}</td>
+                          <td className="text-amber-700 font-semibold">{formatMoney(row.utangTotal)}</td>
                           <td>{row.transactions}</td>
                           <td>{row.itemsSold}</td>
                         </tr>
@@ -224,10 +314,14 @@ function Reports() {
                   {report.byStaff.map((row) => (
                     <div key={row.staffName} className="ui-mobile-card">
                       <p className="font-semibold text-gray-900">{row.staffName}</p>
-                      <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                         <div>
                           <p className="text-xs text-gray-500">Income</p>
                           <p className="text-green-700 font-semibold">{formatMoney(row.income)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Utang</p>
+                          <p className="text-amber-700 font-semibold">{formatMoney(row.utangTotal)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">Sales</p>
@@ -237,6 +331,67 @@ function Reports() {
                           <p className="text-xs text-gray-500">Items</p>
                           <p>{row.itemsSold}</p>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {report.utangOrders?.length > 0 && (
+              <div className="ui-card border-amber-200 bg-amber-50/40">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Utang Sales</h2>
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full ui-table">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-left text-gray-600">
+                        <th>Date</th>
+                        <th>Name</th>
+                        <th>Product</th>
+                        <th>Qty</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Staff</th>
+                        <th className="text-center">Pay</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.utangOrders.map((order) => (
+                        <tr key={order.id} className="border-b border-gray-100">
+                          <td className="whitespace-nowrap">
+                            {new Date(order.order_date).toLocaleString()}
+                          </td>
+                          <td className="font-semibold text-amber-800">{order.debtor_name || '—'}</td>
+                          <td>
+                            {order.product_name}
+                            {order.size ? <span className="text-gray-500"> · EU {order.size}</span> : null}
+                          </td>
+                          <td>{order.quantity}</td>
+                          <td>{renderUtangAmount(order)}</td>
+                          <td>{renderUtangStatus(order)}</td>
+                          <td>{order.staff_name || '—'}</td>
+                          <td className="text-center">{renderPayUtangButton(order)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="lg:hidden space-y-3">
+                  {report.utangOrders.map((order) => (
+                    <div key={order.id} className="ui-mobile-card">
+                      <div className="flex justify-between gap-2 mb-1">
+                        <p className="font-semibold text-amber-800">{order.debtor_name || '—'}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {renderUtangStatus(order)}
+                          {renderPayUtangButton(order)}
+                        </div>
+                      </div>
+                      <div className="mb-1">{renderUtangAmount(order)}</div>
+                      <p className="text-sm text-gray-900">{order.product_name}</p>
+                      <p className="text-xs text-gray-500 mt-1">{new Date(order.order_date).toLocaleString()}</p>
+                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                        <div><span className="text-gray-500">Qty:</span> {order.quantity}</div>
+                        <div><span className="text-gray-500">Staff:</span> {order.staff_name || '—'}</div>
                       </div>
                     </div>
                   ))}
@@ -259,8 +414,9 @@ function Reports() {
                           <th>Qty</th>
                           <th>Amount</th>
                           <th>Discount</th>
-                          <th>Staff</th>
-                          <th>Payment</th>
+                        <th>Staff</th>
+                        <th>Payment</th>
+                        <th>Utang Name</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -274,14 +430,30 @@ function Reports() {
                               {order.size ? <span className="text-gray-500"> · EU {order.size}</span> : null}
                             </td>
                             <td>{order.quantity}</td>
-                            <td className="font-semibold text-green-700">
+                            <td className={`font-semibold ${isUtangUnpaid(order) ? 'text-amber-700' : 'text-green-700'}`}>
                               {formatMoney(order.total_amount)}
                             </td>
                             <td className="text-amber-700">
                               {Number(order.discount) > 0 ? formatMoney(order.discount) : '—'}
                             </td>
                             <td>{order.staff_name || '—'}</td>
-                            <td className="capitalize">{order.payment_method || 'cash'}</td>
+                            <td>
+                              {isUtangPayment(order.payment_method) ? (
+                                <span>
+                                  {formatPaymentMethod(order.payment_method)}
+                                  {isUtangPaid(order)
+                                    ? ' (Paid)'
+                                    : isUtangPartial(order)
+                                      ? ` (Partial · ${formatMoney(getUtangRemaining(order))} left)`
+                                      : ' (Pending)'}
+                                </span>
+                              ) : (
+                                formatPaymentMethod(order.payment_method)
+                              )}
+                            </td>
+                            <td className="font-medium text-amber-800">
+                              {order.debtor_name || '—'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -292,42 +464,23 @@ function Reports() {
                       <div key={order.id} className="ui-mobile-card">
                         <div className="flex justify-between gap-2 mb-2">
                           <p className="font-semibold text-gray-900 break-words">{order.product_name}</p>
-                          <p className="text-green-700 font-bold shrink-0">{formatMoney(order.total_amount)}</p>
+                          <p className={`font-bold shrink-0 ${isUtangUnpaid(order) ? 'text-amber-700' : 'text-green-700'}`}>
+                            {formatMoney(order.total_amount)}
+                          </p>
                         </div>
                         <p className="text-xs text-gray-500">{new Date(order.order_date).toLocaleString()}</p>
                         <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                           <div><span className="text-gray-500">Qty:</span> {order.quantity}</div>
                           <div><span className="text-gray-500">Size:</span> {order.size ? `EU ${order.size}` : '—'}</div>
                           <div><span className="text-gray-500">Staff:</span> {order.staff_name || '—'}</div>
-                          <div><span className="text-gray-500">Payment:</span> <span className="capitalize">{order.payment_method || 'cash'}</span></div>
+                          <div><span className="text-gray-500">Payment:</span> {isUtangPayment(order.payment_method) ? `${formatPaymentMethod(order.payment_method)}${isUtangPaid(order) ? ' (Paid)' : isUtangPartial(order) ? ` (Partial · ${formatMoney(getUtangRemaining(order))} left)` : ' (Pending)'}` : formatPaymentMethod(order.payment_method)}</div>
+                          <div><span className="text-gray-500">Utang:</span> {order.debtor_name || '—'}</div>
                           <div><span className="text-gray-500">Discount:</span> {Number(order.discount) > 0 ? formatMoney(order.discount) : '—'}</div>
                         </div>
                       </div>
                     ))}
                   </div>
                 </>
-              )}
-            </div>
-
-            <div className="bg-white border border-red-200 rounded-lg p-3 sm:p-4">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Low Stock Products</h2>
-              {report.lowStock.length === 0 ? (
-                <p className="text-gray-500 text-sm">No low stock items right now.</p>
-              ) : (
-                <div className="space-y-2">
-                  {report.lowStock.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex justify-between items-center bg-red-50 border border-red-100 rounded-lg px-4 py-3"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{product.name}</p>
-                        <p className="text-xs text-gray-500">{product.category_name || 'No category'}</p>
-                      </div>
-                      <span className="text-red-600 font-bold">{product.stock} left</span>
-                    </div>
-                  ))}
-                </div>
               )}
             </div>
           </>

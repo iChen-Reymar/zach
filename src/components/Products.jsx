@@ -7,6 +7,7 @@ import ProductDetailModal from './ProductDetailModal'
 import { useAuth } from '../contexts/AuthContext'
 import { productService } from '../services/productService'
 import { categoryService } from '../services/categoryService'
+import { INVENTORY_UPDATED_EVENT } from '../utils/inventoryEvents'
 
 function Products() {
   const navigate = useNavigate()
@@ -23,10 +24,18 @@ function Products() {
   const [searchQuery, setSearchQuery] = useState('')
   const { user, isAdmin, isStaff } = useAuth()
 
-  // Fetch products and categories from database
   useEffect(() => {
     fetchProducts()
     fetchCategories()
+
+    const handleRefresh = () => fetchProducts()
+    window.addEventListener(INVENTORY_UPDATED_EVENT, handleRefresh)
+    window.addEventListener('focus', handleRefresh)
+
+    return () => {
+      window.removeEventListener(INVENTORY_UPDATED_EVENT, handleRefresh)
+      window.removeEventListener('focus', handleRefresh)
+    }
   }, [])
 
   useEffect(() => {
@@ -253,26 +262,11 @@ function Products() {
         {renderProductCardImage(product)}
       </div>
 
-      <div className="mt-auto flex items-end justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-bold text-gray-900 sm:text-base">{product.name}</h3>
-          <p className="mt-0.5 text-sm text-gray-900 sm:text-base">
-            ₱{parseFloat(product.price || 0).toFixed(2)}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleProductClick(product)
-          }}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-gray-900 shadow-sm transition-colors hover:bg-gray-50"
-          aria-label={`View ${product.name}`}
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+      <div className="mt-auto">
+        <h3 className="truncate text-sm font-bold text-gray-900 sm:text-base">{product.name}</h3>
+        <p className="mt-0.5 text-sm text-gray-900 sm:text-base">
+          ₱{parseFloat(product.price || 0).toFixed(2)}
+        </p>
       </div>
 
       {(isAdmin() || isStaff()) && (

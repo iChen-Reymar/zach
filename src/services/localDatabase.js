@@ -292,6 +292,19 @@ function migrateSchema() {
   addColumnIfMissing('orders', 'staff_name', 'TEXT')
   addColumnIfMissing('orders', 'payment_method', "TEXT DEFAULT 'cash'")
   addColumnIfMissing('orders', 'size', 'TEXT')
+  addColumnIfMissing('orders', 'debtor_name', 'TEXT')
+  addColumnIfMissing('orders', 'utang_paid', 'INTEGER DEFAULT 0')
+  addColumnIfMissing('orders', 'utang_paid_at', 'TEXT')
+  addColumnIfMissing('orders', 'utang_paid_method', 'TEXT')
+  addColumnIfMissing('orders', 'utang_paid_amount', 'REAL DEFAULT 0')
+  addColumnIfMissing('orders', 'stock_deducted', 'INTEGER DEFAULT 0')
+
+  if (hasColumn('orders', 'stock_deducted') && !getMetaValue('orders_stock_deducted_backfill')) {
+    runSafe('orders-stock-backfill', () => {
+      db.run('UPDATE orders SET stock_deducted = 1')
+      setMetaValue('orders_stock_deducted_backfill', '1')
+    })
+  }
 
   rebuildOrdersTableIfNeeded()
 
@@ -425,6 +438,12 @@ function rowToOrder(row) {
     staff_name: row.staff_name || null,
     payment_method: row.payment_method || 'cash',
     size: row.size || null,
+    debtor_name: row.debtor_name || null,
+    utang_paid: !!row.utang_paid,
+    utang_paid_at: row.utang_paid_at || null,
+    utang_paid_method: row.utang_paid_method || null,
+    utang_paid_amount: row.utang_paid_amount ?? 0,
+    stock_deducted: !!row.stock_deducted,
     order_date: row.order_date
   }
 }
@@ -1051,8 +1070,8 @@ export const localDatabase = {
   async saveOrder(order) {
     run(
       `INSERT OR REPLACE INTO orders
-        (id, customer_id, product_id, product_name, quantity, unit_price, list_unit_price, discount, total_amount, staff_id, staff_name, payment_method, size, order_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, customer_id, product_id, product_name, quantity, unit_price, list_unit_price, discount, total_amount, staff_id, staff_name, payment_method, size, debtor_name, utang_paid, utang_paid_at, utang_paid_method, utang_paid_amount, stock_deducted, order_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         order.id,
         order.customer_id,
@@ -1067,6 +1086,12 @@ export const localDatabase = {
         order.staff_name || null,
         order.payment_method || 'cash',
         order.size || null,
+        order.debtor_name || null,
+        order.utang_paid ? 1 : 0,
+        order.utang_paid_at || null,
+        order.utang_paid_method || null,
+        order.utang_paid_amount ?? 0,
+        order.stock_deducted ? 1 : 0,
         order.order_date
       ]
     )

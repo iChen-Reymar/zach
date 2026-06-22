@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from './Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { statsService } from '../services/statsService'
+import { INVENTORY_UPDATED_EVENT } from '../utils/inventoryEvents'
 
 function Admin() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -16,6 +18,15 @@ function Admin() {
       return
     }
     loadOverview()
+
+    const handleRefresh = () => loadOverview()
+    window.addEventListener(INVENTORY_UPDATED_EVENT, handleRefresh)
+    window.addEventListener('focus', handleRefresh)
+
+    return () => {
+      window.removeEventListener(INVENTORY_UPDATED_EVENT, handleRefresh)
+      window.removeEventListener('focus', handleRefresh)
+    }
   }, [navigate])
 
   const loadOverview = async () => {
@@ -31,6 +42,39 @@ function Admin() {
   }
 
   const formatMoney = (amount) => `₱${(Number(amount) || 0).toFixed(2)}`
+
+  const filteredProducts = useMemo(() => {
+    if (!overview?.products) return []
+    const query = searchQuery.toLowerCase().trim()
+    if (!query) return overview.products
+
+    return overview.products.filter((product) => {
+      const name = (product.name || '').toLowerCase()
+      const category = (product.category || '').toLowerCase()
+      const stock = product.stock?.toString() || ''
+      const cost = product.cost?.toString() || ''
+      const price = product.price?.toString() || ''
+
+      return (
+        name.includes(query) ||
+        category.includes(query) ||
+        stock.includes(query) ||
+        cost.includes(query) ||
+        price.includes(query)
+      )
+    })
+  }, [overview, searchQuery])
+
+  const filteredTotals = useMemo(() => {
+    return filteredProducts.reduce(
+      (acc, product) => ({
+        stock: acc.stock + (product.stock || 0),
+        costValue: acc.costValue + (product.costValue || 0),
+        sellingValue: acc.sellingValue + (product.sellingValue || 0)
+      }),
+      { stock: 0, costValue: 0, sellingValue: 0 }
+    )
+  }, [filteredProducts])
 
   if (!isAdmin()) return null
 
@@ -78,9 +122,50 @@ function Admin() {
             </div>
 
             <div className="ui-card">
-              <h2 className="text-base font-semibold text-gray-900 mb-3">All Product Stock</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <h2 className="text-base font-semibold text-gray-900">All Product Stock</h2>
+                <div className="relative w-full sm:max-w-xs">
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue text-sm"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title="Clear search"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                  <svg
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+              </div>
+
               {overview.products.length === 0 ? (
                 <p className="text-sm text-gray-500">No products in inventory.</p>
+              ) : filteredProducts.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No products found matching &quot;{searchQuery}&quot;
+                </p>
               ) : (
                 <>
                   <div className="hidden lg:block overflow-x-auto">
@@ -97,7 +182,7 @@ function Admin() {
                         </tr>
                       </thead>
                       <tbody>
-                        {overview.products.map((product) => (
+                        {filteredProducts.map((product) => (
                           <tr key={product.id} className="border-b border-gray-100">
                             <td className="font-medium text-gray-900">{product.name}</td>
                             <td className="text-gray-600">{product.category}</td>
@@ -116,17 +201,17 @@ function Admin() {
                       <tfoot>
                         <tr className="border-t border-gray-200 font-semibold text-gray-900">
                           <td colSpan={2}>Total</td>
-                          <td>{overview.totalStock}</td>
+                          <td>{filteredTotals.stock}</td>
                           <td colSpan={2} />
-                          <td className="text-amber-700">{formatMoney(overview.costValue)}</td>
-                          <td className="text-green-700">{formatMoney(overview.sellingValue)}</td>
+                          <td className="text-amber-700">{formatMoney(filteredTotals.costValue)}</td>
+                          <td className="text-green-700">{formatMoney(filteredTotals.sellingValue)}</td>
                         </tr>
                       </tfoot>
                     </table>
                   </div>
 
                   <div className="lg:hidden space-y-3">
-                    {overview.products.map((product) => (
+                    {filteredProducts.map((product) => (
                       <div key={product.id} className="ui-mobile-card">
                         <div className="flex justify-between items-start gap-2 mb-2">
                           <div className="min-w-0">
@@ -158,15 +243,15 @@ function Admin() {
                     <div className="ui-mobile-card bg-gray-50 font-semibold text-gray-900">
                       <div className="flex justify-between">
                         <span>Total stock</span>
-                        <span>{overview.totalStock}</span>
+                        <span>{filteredTotals.stock}</span>
                       </div>
                       <div className="flex justify-between mt-2 text-amber-700">
                         <span>Total value (cost)</span>
-                        <span>{formatMoney(overview.costValue)}</span>
+                        <span>{formatMoney(filteredTotals.costValue)}</span>
                       </div>
                       <div className="flex justify-between mt-2 text-green-700">
                         <span>Total value (selling)</span>
-                        <span>{formatMoney(overview.sellingValue)}</span>
+                        <span>{formatMoney(filteredTotals.sellingValue)}</span>
                       </div>
                     </div>
                   </div>

@@ -3,6 +3,7 @@ import { productService } from '../services/productService'
 import { orderService } from '../services/orderService'
 import { useAuth } from '../contexts/AuthContext'
 import { normalizeSizes, sortSizeEntries, formatSizeLabel } from '../utils/shoeSizes'
+import { isUtangPayment } from '../utils/paymentMethod'
 
 function SaleModal({ isOpen, onClose, onSaleComplete }) {
   const { user, profile } = useAuth()
@@ -15,6 +16,7 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
   const [saleUnitPrice, setSaleUnitPrice] = useState('')
   const [discountAmount, setDiscountAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [debtorName, setDebtorName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -30,6 +32,8 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
       setShowProductList(false)
       setSaleUnitPrice('')
       setDiscountAmount('')
+      setDebtorName('')
+      setPaymentMethod('cash')
     }
   }, [isOpen])
 
@@ -188,6 +192,11 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
       return
     }
 
+    if (isUtangPayment(paymentMethod) && !debtorName.trim()) {
+      setError('Enter the name of the person who has utang')
+      return
+    }
+
     setLoading(true)
     try {
       const { error: orderError } = await orderService.createOrder({
@@ -201,14 +210,16 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
         staff_id: user?.id,
         staff_name: profile?.name || user?.email || 'Staff',
         payment_method: paymentMethod,
-        size: productHasSizes ? selectedSize : null
+        size: productHasSizes ? selectedSize : null,
+        debtor_name: isUtangPayment(paymentMethod) ? debtorName.trim() : null
       })
 
       if (orderError) throw new Error(orderError.message || 'Sale failed')
 
       const sizeLabel = productHasSizes ? ` · EU ${selectedSize}` : ''
+      const utangLabel = isUtangPayment(paymentMethod) ? ` · Utang: ${debtorName.trim()}` : ''
       setSuccess(
-        `Sale recorded! Total: ₱${totalAmount}${sizeLabel}${parsedDiscount > 0 ? ` (Discount: ₱${parsedDiscount.toFixed(2)})` : ''}`
+        `Sale recorded! Total: ₱${totalAmount}${sizeLabel}${utangLabel}${parsedDiscount > 0 ? ` (Discount: ₱${parsedDiscount.toFixed(2)})` : ''}`
       )
       if (onSaleComplete) await onSaleComplete()
 
@@ -219,6 +230,7 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
       setDiscountAmount('')
       setQuantity(1)
       setPaymentMethod('cash')
+      setDebtorName('')
 
       setTimeout(() => {
         onClose()
@@ -248,7 +260,9 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
 
         <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-4">
           <p className="text-sm text-gray-600">
-            Stock will be deducted automatically and added to sales statistics.
+            {isUtangPayment(paymentMethod)
+              ? 'Utang recorded. Stock will deduct when the debt is fully paid.'
+              : 'Stock will be deducted automatically and added to sales statistics.'}
           </p>
 
           <div ref={productSearchRef}>
@@ -402,14 +416,37 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">Payment</label>
             <select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
+              onChange={(e) => {
+                setPaymentMethod(e.target.value)
+                if (!isUtangPayment(e.target.value)) {
+                  setDebtorName('')
+                }
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
             >
               <option value="cash">Cash</option>
               <option value="gcash">GCash</option>
               <option value="card">Card</option>
+              <option value="utang">Utang</option>
             </select>
           </div>
+
+          {isUtangPayment(paymentMethod) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Name (Utang) *</label>
+              <input
+                type="text"
+                value={debtorName}
+                onChange={(e) => setDebtorName(e.target.value)}
+                placeholder="Enter name of person who owes"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+                required
+              />
+              <p className="text-xs text-amber-700 mt-1">
+                This sale will be recorded as utang. Inventory updates when fully paid.
+              </p>
+            </div>
+          )}
 
           {selectedProductData && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
@@ -432,11 +469,13 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
                 <span className="font-bold text-primary-blue text-lg">₱{totalAmount}</span>
               </div>
               <div className="flex justify-between mt-1 text-gray-500">
-                <span>Stock after sale</span>
+                <span>{isUtangPayment(paymentMethod) ? 'Stock after full payment' : 'Stock after sale'}</span>
                 <span>
-                  {productHasSizes && selectedSize
-                    ? `EU ${selectedSize}: ${Math.max(0, selectedSizeStock - parsedQuantity)} · Total: ${Math.max(0, selectedProductData.stock - parsedQuantity)}`
-                    : Math.max(0, selectedProductData.stock - parsedQuantity)}
+                  {isUtangPayment(paymentMethod)
+                    ? `${selectedProductData.stock} (unchanged until paid)`
+                    : productHasSizes && selectedSize
+                      ? `EU ${selectedSize}: ${Math.max(0, selectedSizeStock - parsedQuantity)} · Total: ${Math.max(0, selectedProductData.stock - parsedQuantity)}`
+                      : Math.max(0, selectedProductData.stock - parsedQuantity)}
                 </span>
               </div>
             </div>
@@ -455,7 +494,7 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
             </button>
             <button
               type="submit"
-              disabled={loading || !selectedProduct || (productHasSizes && !selectedSize)}
+              disabled={loading || !selectedProduct || (productHasSizes && !selectedSize) || (isUtangPayment(paymentMethod) && !debtorName.trim())}
               className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Complete Sale'}

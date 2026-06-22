@@ -1,6 +1,7 @@
 import { localDatabase } from './localDatabase'
 import { productService } from './productService'
 import { endOfDay, startOfDay } from '../utils/dateRange'
+import { isUtangPayment, isUtangPaid, isUtangUnpaid, getUtangPaidAmount, getUtangRemaining } from '../utils/paymentMethod'
 
 function startOfWeek(date) {
   const d = startOfDay(date)
@@ -17,7 +18,22 @@ function startOfMonth(date) {
 }
 
 function summarizeOrders(orders) {
-  const income = orders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0)
+  const paidOrders = orders.filter((o) => !isUtangPayment(o.payment_method) || isUtangPaid(o))
+  const unpaidUtangOrders = orders.filter((o) => isUtangUnpaid(o))
+  const allUtangOrders = orders.filter((o) => isUtangPayment(o.payment_method))
+
+  const income = orders.reduce((sum, order) => {
+    if (isUtangPayment(order.payment_method)) {
+      return sum + getUtangPaidAmount(order)
+    }
+    return sum + (Number(order.total_amount) || 0)
+  }, 0)
+
+  const utangTotal = unpaidUtangOrders.reduce(
+    (sum, order) => sum + getUtangRemaining(order),
+    0
+  )
+
   const itemsSold = orders.reduce((sum, o) => sum + (Number(o.quantity) || 0), 0)
   const totalDiscounts = orders.reduce((sum, o) => sum + (Number(o.discount) || 0), 0)
 
@@ -25,20 +41,43 @@ function summarizeOrders(orders) {
   for (const order of orders) {
     const key = order.staff_name || order.staff_id || 'Unknown'
     if (!byStaff[key]) {
-      byStaff[key] = { staffName: key, income: 0, transactions: 0, itemsSold: 0 }
+      byStaff[key] = {
+        staffName: key,
+        income: 0,
+        utangTotal: 0,
+        transactions: 0,
+        utangTransactions: 0,
+        itemsSold: 0
+      }
     }
-    byStaff[key].income += Number(order.total_amount) || 0
+
+    if (isUtangPayment(order.payment_method)) {
+      byStaff[key].income += getUtangPaidAmount(order)
+      const remaining = getUtangRemaining(order)
+      if (remaining > 0.001) {
+        byStaff[key].utangTotal += remaining
+        byStaff[key].utangTransactions += 1
+      }
+    } else {
+      byStaff[key].income += Number(order.total_amount) || 0
+    }
+
     byStaff[key].transactions += 1
     byStaff[key].itemsSold += Number(order.quantity) || 0
   }
 
   return {
     income,
+    utangTotal,
+    totalSales: income + utangTotal,
     transactions: orders.length,
+    paidTransactions: paidOrders.length,
+    utangTransactions: unpaidUtangOrders.length,
     itemsSold,
     totalDiscounts,
     orders,
-    byStaff: Object.values(byStaff).sort((a, b) => b.income - a.income)
+    utangOrders: allUtangOrders,
+    byStaff: Object.values(byStaff).sort((a, b) => (b.income + b.utangTotal) - (a.income + a.utangTotal))
   }
 }
 
@@ -63,17 +102,8 @@ export const statsService = {
     return { daily, weekly, monthly }
   },
 
-  async getLowStockProducts() {
-    const { data } = await productService.getAllProducts()
-    return (data || []).filter((p) => p.stock > 0 && p.stock <= 2)
-  },
-
   async getFullReport(period = 'daily') {
-    const [stats, lowStock] = await Promise.all([
-      this.getPeriodStats(period),
-      this.getLowStockProducts()
-    ])
-    return { ...stats, lowStock }
+    return this.getPeriodStats(period)
   },
 
   async getDateRangeStats(startDate, endDate) {
@@ -89,11 +119,7 @@ export const statsService = {
   },
 
   async getFullReportForDateRange(startDate, endDate) {
-    const [stats, lowStock] = await Promise.all([
-      this.getDateRangeStats(startDate, endDate),
-      this.getLowStockProducts()
-    ])
-    return { ...stats, lowStock }
+    return this.getDateRangeStats(startDate, endDate)
   },
 
   async getInventoryOverview() {
