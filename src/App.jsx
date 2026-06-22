@@ -13,6 +13,7 @@ import Staffs from './components/Staffs'
 import Customers from './components/Customers'
 import Settings from './components/Settings'
 import Reports from './components/Reports'
+import Admin from './components/Admin'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function AuthWrapper({ children }) {
@@ -104,6 +105,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Reports />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <Admin />
               </ProtectedRoute>
             }
           />

@@ -232,7 +232,7 @@ function Settings() {
 
   return (
     <Layout pageTitle="settings">
-      <div className="p-4 sm:p-6">
+      <div className="p-3 sm:p-4">
         {/* Page Header */}
         <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -263,7 +263,7 @@ function Settings() {
         )}
 
         {/* User Details Card */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">User Details</h2>
           <div className={`grid grid-cols-1 ${isViewingOtherUser ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-4 sm:gap-6`}>
             <div>
@@ -361,7 +361,7 @@ function Settings() {
         </div>
 
         {isAdmin() && !isViewingOtherUser && (
-          <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+          <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-4">
             {(passwordError || passwordSuccess) && (
               <div>
                 {passwordError && (
@@ -377,7 +377,7 @@ function Settings() {
               </div>
             )}
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+            <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Change My Password</h2>
               <p className="text-sm text-gray-600 mb-4 sm:mb-6">
                 Update your admin login password. You will need your current password.
@@ -430,7 +430,7 @@ function Settings() {
               </form>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+            <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Staff Password Management</h2>
               <p className="text-sm text-gray-600 mb-4 sm:mb-6">
             

@@ -136,7 +136,7 @@ function CashInModal({ isOpen, onClose, onCashIn, currentBalance = 0 }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Cash In</h2>
             <p className="text-xs text-amber-600 mt-1 font-medium">⚠️ DEMO MODE - No real payment processing</p>
@@ -162,7 +162,7 @@ function CashInModal({ isOpen, onClose, onCashIn, currentBalance = 0 }) {
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4">
           <div className="space-y-4">
             {/* Current Balance */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

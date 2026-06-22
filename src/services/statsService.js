@@ -1,11 +1,6 @@
 import { localDatabase } from './localDatabase'
 import { productService } from './productService'
-
-function startOfDay(date) {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
+import { endOfDay, startOfDay } from '../utils/dateRange'
 
 function startOfWeek(date) {
   const d = startOfDay(date)
@@ -79,5 +74,65 @@ export const statsService = {
       this.getLowStockProducts()
     ])
     return { ...stats, lowStock }
+  },
+
+  async getDateRangeStats(startDate, endDate) {
+    const start = startOfDay(startDate)
+    const end = endOfDay(endDate)
+    const orders = await localDatabase.getOrdersBetween(start.toISOString(), end.toISOString())
+    return {
+      period: 'custom',
+      since: start.toISOString(),
+      until: end.toISOString(),
+      ...summarizeOrders(orders)
+    }
+  },
+
+  async getFullReportForDateRange(startDate, endDate) {
+    const [stats, lowStock] = await Promise.all([
+      this.getDateRangeStats(startDate, endDate),
+      this.getLowStockProducts()
+    ])
+    return { ...stats, lowStock }
+  },
+
+  async getInventoryOverview() {
+    const { data: products } = await productService.getAllProducts()
+    const items = products || []
+
+    let totalStock = 0
+    let sellingValue = 0
+    let costValue = 0
+
+    const breakdown = items.map((product) => {
+      const stock = Number(product.stock) || 0
+      const price = Number(product.price) || 0
+      const cost = Number(product.cost) || 0
+      const lineSellingValue = stock * price
+      const lineCostValue = stock * cost
+
+      totalStock += stock
+      sellingValue += lineSellingValue
+      costValue += lineCostValue
+
+      return {
+        id: product.id,
+        name: product.name,
+        category: product.category_name || product.category || '—',
+        stock,
+        price,
+        cost,
+        sellingValue: lineSellingValue,
+        costValue: lineCostValue
+      }
+    }).sort((a, b) => b.stock - a.stock)
+
+    return {
+      productCount: items.length,
+      totalStock,
+      sellingValue,
+      costValue,
+      products: breakdown
+    }
   }
 }

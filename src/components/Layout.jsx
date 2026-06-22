@@ -197,30 +197,38 @@ function Layout({ children, pageTitle = 'home' }) {
     return location.pathname === path
   }
 
+  useEffect(() => {
+    document.body.classList.toggle('sidebar-open', isSidebarOpen)
+    return () => document.body.classList.remove('sidebar-open')
+  }, [isSidebarOpen])
+
+  const navClass = (path) =>
+    `ui-nav-link ${isActive(path) ? 'ui-nav-link-active' : ''}`
+
   return (
-    <div className="h-screen w-screen bg-gray-800 flex overflow-hidden max-w-full">
+    <div className="h-screen w-full bg-gray-800 flex overflow-hidden">
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
       
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-64 bg-primary-blue flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${
-        isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      <aside className={`fixed md:static inset-y-0 left-0 w-64 max-w-[85vw] bg-primary-blue flex flex-col z-50 transform transition-transform duration-300 ease-in-out safe-top safe-bottom ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}>
         {/* Navigation Links */}
         <div className="flex-1 pt-8 px-6">
           <div className="mb-8 px-1">
             <BrandText size="md" variant="dark" />
           </div>
-          <nav className="space-y-6">
+          <nav className="space-y-4">
             <a 
               href="/home" 
               onClick={(e) => { e.preventDefault(); navigate('/home'); setIsSidebarOpen(false) }}
-              className={`flex items-center text-white hover:opacity-80 transition-opacity ${isActive('/home') ? 'bg-white bg-opacity-20 rounded-lg px-3 py-2' : ''}`}
+              className={navClass('/home')}
             >
               <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -230,7 +238,7 @@ function Layout({ children, pageTitle = 'home' }) {
             <a  
               href="/products" 
               onClick={(e) => { e.preventDefault(); navigate('/products'); setIsSidebarOpen(false) }}
-              className={`flex items-center text-white hover:opacity-80 transition-opacity ${isActive('/products') ? 'bg-white bg-opacity-20 rounded-lg px-3 py-2' : ''}`}
+              className={navClass('/products')}
             >
               <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -241,7 +249,7 @@ function Layout({ children, pageTitle = 'home' }) {
               <a
                 href="/reports"
                 onClick={(e) => { e.preventDefault(); navigate('/reports'); setIsSidebarOpen(false) }}
-                className={`flex items-center text-white hover:opacity-80 transition-opacity ${isActive('/reports') ? 'bg-white bg-opacity-20 rounded-lg px-3 py-2' : ''}`}
+                className={navClass('/reports')}
               >
                 <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6h6v6m2 4H7a2 2 0 01-2-2V7a2 2 0 012-2h3l2-2h4l2 2h3a2 2 0 012 2v12a2 2 0 01-2 2z" />
@@ -252,7 +260,7 @@ function Layout({ children, pageTitle = 'home' }) {
             <a 
               href="/categories" 
               onClick={(e) => { e.preventDefault(); navigate('/categories'); setIsSidebarOpen(false) }}
-              className={`flex items-center text-white hover:opacity-80 transition-opacity ${isActive('/categories') ? 'bg-white bg-opacity-20 rounded-lg px-3 py-2' : ''}`}
+              className={navClass('/categories')}
             >
               <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -264,7 +272,7 @@ function Layout({ children, pageTitle = 'home' }) {
                 <a 
                   href="/staffs" 
                   onClick={(e) => { e.preventDefault(); navigate('/staffs'); setIsSidebarOpen(false) }}
-                  className={`flex items-center text-white hover:opacity-80 transition-opacity ${isActive('/staffs') ? 'bg-white bg-opacity-20 rounded-lg px-3 py-2' : ''}`}
+                  className={navClass('/staffs')}
                 >
                   <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -274,12 +282,22 @@ function Layout({ children, pageTitle = 'home' }) {
                 <a 
                   href="/customers" 
                   onClick={(e) => { e.preventDefault(); navigate('/customers'); setIsSidebarOpen(false) }}
-                  className={`flex items-center text-white hover:opacity-80 transition-opacity ${isActive('/customers') ? 'bg-white bg-opacity-20 rounded-lg px-3 py-2' : ''}`}
+                  className={navClass('/customers')}
                 >
                   <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                   <span className="text-white font-medium">Customers</span>
+                </a>
+                <a
+                  href="/admin"
+                  onClick={(e) => { e.preventDefault(); navigate('/admin'); setIsSidebarOpen(false) }}
+                  className={navClass('/admin')}
+                >
+                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <span className="text-white font-medium">Admin</span>
                 </a>
               </>
             )}
@@ -292,13 +310,13 @@ function Layout({ children, pageTitle = 'home' }) {
             <>
               <button
                 onClick={() => navigate('/products?sale=1')}
-                className="w-full py-2.5 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
+                className="w-full ui-btn bg-green-500 text-white hover:bg-green-600"
               >
                 Record Sale
               </button>
               <button
                 onClick={() => navigate('/products')}
-                className="w-full py-2.5 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-primary-blue transition-colors"
+                className="w-full ui-btn border border-white text-white hover:bg-white hover:text-primary-blue"
               >
                 + Add product
               </button>
@@ -306,7 +324,7 @@ function Layout({ children, pageTitle = 'home' }) {
           )}
           <button 
             onClick={handleLogout}
-            className="w-full py-2.5 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-primary-blue transition-colors"
+            className="w-full ui-btn border border-white text-white hover:bg-white hover:text-primary-blue"
           >
             → Logout
           </button>
@@ -321,7 +339,7 @@ function Layout({ children, pageTitle = 'home' }) {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="lg:hidden p-2 min-w-[44px] min-h-[44px] rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
+              className="md:hidden p-2 min-w-[44px] min-h-[44px] rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
               aria-label="Toggle menu"
             >
               <svg
@@ -338,7 +356,7 @@ function Layout({ children, pageTitle = 'home' }) {
               </svg>
             </button>
             
-            <div className="flex-1 lg:flex-none">
+            <div className="flex-1 md:flex-none min-w-0 truncate">
               <BrandText size="sm" variant="light" />
             </div>
 
@@ -519,7 +537,7 @@ function Layout({ children, pageTitle = 'home' }) {
               </button>
               {isSearching && (
                 <div className="absolute right-12 top-1/2 transform -translate-y-1/2">
-                  <div className="w-5 h-5 border-2 border-primary-blue border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border border-primary-blue border-t-transparent rounded-full animate-spin"></div>
                 </div>
               )}
               {/* Mobile Search Results */}

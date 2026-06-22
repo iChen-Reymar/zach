@@ -20,7 +20,7 @@ function DownloadApp({ variant = 'card' }) {
   if (desktop) {
     if (variant === 'button') return null
     return (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 sm:p-6">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,7 +70,7 @@ function DownloadApp({ variant = 'card' }) {
   }
 
   return (
-    <div className="bg-gradient-to-r from-slate-50 to-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+    <div className="bg-gradient-to-r from-slate-50 to-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <BrandText size="sm" variant="light" className="shrink-0" />

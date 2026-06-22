@@ -10,7 +10,7 @@ function PhoneAppCard() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-4 sm:p-6">
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <BrandText size="sm" variant="light" className="shrink-0" />
           <div>
@@ -40,7 +40,7 @@ function PhoneAppCard() {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+      <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
         <p className="font-semibold text-gray-900 mb-2">Add to Home Screen (optional)</p>
         {isIOSDevice() ? (
           <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">

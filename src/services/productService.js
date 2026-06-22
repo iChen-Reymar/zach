@@ -1,5 +1,6 @@
 import { localDatabase, generateId } from './localDatabase'
 import { categoryService } from './categoryService'
+import { getTotalStockFromSizes, normalizeSizes } from '../utils/shoeSizes'
 
 function getProductStatus(stock) {
   if (stock === 0) return 'Sold'
@@ -30,16 +31,23 @@ export const productService = {
 
   async createProduct(product) {
     try {
+      const sizes = normalizeSizes(product.sizes)
+      const stock = Object.keys(sizes).length > 0
+        ? getTotalStockFromSizes(sizes)
+        : product.stock
+
       const data = {
         id: generateId(),
         name: product.name,
-        stock: product.stock,
+        stock,
         price: product.price || 0,
-        status: getProductStatus(product.stock),
+        cost: product.cost || 0,
+        status: getProductStatus(stock),
         category_id: product.category_id,
         category_name: product.category_name,
         image: product.image || null,
         barcode: product.barcode || null,
+        sizes: Object.keys(sizes).length > 0 ? sizes : null,
         created_at: new Date().toISOString()
       }
 
@@ -64,10 +72,23 @@ export const productService = {
       }
 
       const oldCategoryId = currentProduct.category_id
-      const merged = { ...currentProduct, ...updates, id }
+      const sizes = updates.sizes !== undefined
+        ? normalizeSizes(updates.sizes)
+        : normalizeSizes(currentProduct.sizes)
+      const stock = Object.keys(sizes).length > 0
+        ? getTotalStockFromSizes(sizes)
+        : (updates.stock !== undefined ? updates.stock : currentProduct.stock)
 
-      if (updates.stock !== undefined) {
-        merged.status = getProductStatus(updates.stock)
+      const merged = {
+        ...currentProduct,
+        ...updates,
+        id,
+        stock,
+        sizes: Object.keys(sizes).length > 0 ? sizes : null
+      }
+
+      if (updates.stock !== undefined || updates.sizes !== undefined) {
+        merged.status = getProductStatus(stock)
       }
 
       await localDatabase.saveProduct(merged)

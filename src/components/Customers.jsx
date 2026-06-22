@@ -17,7 +17,7 @@ function Customers() {
   }, [])
 
   const fetchCustomers = async () => {
-    try {
+    try {F
       setLoading(true)
       setError(null)
       const { data, error } = await customerService.getAllCustomers()
@@ -90,13 +90,13 @@ function Customers() {
         onClose={() => setIsModalOpen(false)}
         onAddCustomer={handleAddCustomer}
       />
-      <div className="p-4 sm:p-6">
+      <div className="p-3 sm:p-4">
         {/* Page Header */}
         <div className="mb-4 sm:mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-6">Customers</h1>
           
           {/* User Profile Card */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">User Profile</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
               <div>
@@ -152,15 +152,15 @@ function Customers() {
         </div>
 
         {/* Customers - Desktop Table View */}
-        <div className="hidden md:block bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="hidden lg:block bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">ID</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Name</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Status</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Actions</th>
+                  <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">ID</th>
+                  <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">Name</th>
+                  <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">Status</th>
+                  <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,16 +179,16 @@ function Customers() {
                 ) : (
                   customers.map((customer) => (
                     <tr key={customer.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-6 text-gray-900 font-mono">
+                      <td className="py-2.5 px-4 text-gray-900 font-mono">
                         {customer.customer_id}
                       </td>
-                      <td className="py-4 px-6 text-gray-900 font-medium">
+                      <td className="py-2.5 px-4 text-gray-900 font-medium">
                         {customer.name}
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-2.5 px-4">
                         {getStatusBadge(customer.status)}
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-2.5 px-4">
                         {customer.status === 'pending' && (isAdmin() || user) ? (
                           <div className="flex items-center gap-2">
                             <button
@@ -219,7 +219,7 @@ function Customers() {
         </div>
 
         {/* Customers - Mobile Card View */}
-        <div className="md:hidden space-y-4">
+        <div className="lg:hidden space-y-4">
           {loading ? (
             <div className="text-center py-8 text-gray-400">Loading customers...</div>
           ) : customers.length === 0 ? (

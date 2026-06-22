@@ -24,7 +24,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
   if (isInstalled) {
     if (variant === 'card') {
       return (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 sm:p-6">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,7 +48,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
 
   if (variant === 'card' && !canInstall && !isIOSDevice) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 sm:p-6">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
         <p className="font-semibold text-gray-900 mb-1">Install App</p>
         <p className="text-sm text-gray-600">
           {isDev
@@ -82,7 +82,7 @@ function InstallApp({ variant = 'banner', onDismiss }) {
 
   if (variant === 'card') {
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <BrandText size="sm" variant="light" className="shrink-0" />

@@ -127,7 +127,7 @@ function Categories() {
         onAddCategory={handleCategorySubmit}
         editingCategory={editingCategory}
       />
-      <div className="p-4 sm:p-6">
+      <div className="p-3 sm:p-4">
         {/* Page Header */}
         <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>

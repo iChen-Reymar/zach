@@ -83,7 +83,7 @@ function AllOrdersModal({ isOpen, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex-1">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               All Orders
@@ -114,7 +114,7 @@ function AllOrdersModal({ isOpen, onClose }) {
         </div>
 
         {/* Search Bar */}
-        <div className="p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+        <div className="p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
           <div className="relative">
             <input
               type="text"
@@ -153,7 +153,7 @@ function AllOrdersModal({ isOpen, onClose }) {
         </div>
 
         {/* Orders Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
           {loading ? (
             <div className="text-center py-12 text-gray-400">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
@@ -174,7 +174,7 @@ function AllOrdersModal({ isOpen, onClose }) {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
@@ -211,7 +211,7 @@ function AllOrdersModal({ isOpen, onClose }) {
               </div>
 
               {/* Mobile Card View */}
-              <div className="md:hidden space-y-3">
+              <div className="lg:hidden space-y-3">
                 {filteredOrders.map((order) => (
                   <div key={order.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-sm">
                     {(isAdmin() || isStaff()) && (
@@ -247,7 +247,7 @@ function AllOrdersModal({ isOpen, onClose }) {
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 sm:p-6 border-t border-gray-200 flex-shrink-0 bg-gray-50">
+        <div className="p-3 sm:p-4 border-t border-gray-200 flex-shrink-0 bg-gray-50">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-600">
               {searchQuery && filteredOrders.length > 0 && (

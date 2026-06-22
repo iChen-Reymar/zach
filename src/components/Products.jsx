@@ -3,9 +3,11 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import Layout from './Layout'
 import AddProductModal from './AddProductModal'
 import SaleModal from './SaleModal'
+import ProductDetailModal from './ProductDetailModal'
 import { useAuth } from '../contexts/AuthContext'
 import { productService } from '../services/productService'
 import { categoryService } from '../services/categoryService'
+import { normalizeSizes } from '../utils/shoeSizes'
 
 function Products() {
   const navigate = useNavigate()
@@ -16,6 +18,7 @@ function Products() {
   const [categories, setCategories] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState(null)
   const [editingProduct, setEditingProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -145,15 +148,22 @@ function Products() {
       // Find category by name
       const category = categories.find(cat => cat.name === newProduct.category)
       
-      const { data, error } = await productService.createProduct({
+      const productPayload = {
         name: newProduct.name,
         stock: newProduct.stock,
+        sizes: newProduct.sizes,
         price: newProduct.price || 0,
         category_id: category?.id,
         category_name: newProduct.category,
         image: newProduct.image || null,
         barcode: newProduct.barcode || null
-      })
+      }
+
+      if (isAdmin()) {
+        productPayload.cost = newProduct.cost || 0
+      }
+
+      const { data, error } = await productService.createProduct(productPayload)
       
       if (error) throw error
       await fetchProducts()
@@ -175,15 +185,22 @@ function Products() {
 
       const category = categories.find(cat => cat.name === updatedProduct.category)
       
-      const { error } = await productService.updateProduct(id, {
+      const updatePayload = {
         name: updatedProduct.name,
         stock: updatedProduct.stock,
+        sizes: updatedProduct.sizes,
         price: updatedProduct.price || 0,
         category_id: category?.id,
         category_name: updatedProduct.category,
         image: updatedProduct.image || null,
         barcode: updatedProduct.barcode || null
-      })
+      }
+
+      if (isAdmin()) {
+        updatePayload.cost = updatedProduct.cost || 0
+      }
+
+      const { error } = await productService.updateProduct(id, updatePayload)
       
       if (error) throw error
       setEditingProduct(null)
@@ -222,6 +239,17 @@ function Products() {
     handleModalClose()
   }
 
+  const handleProductClick = (product) => {
+    setSelectedProduct(product)
+  }
+
+  const handleDetailClose = () => {
+    setSelectedProduct(null)
+  }
+
+  const productHasSizes = (product) => Object.keys(normalizeSizes(product.sizes)).length > 0
+  const tableColSpan = isAdmin() ? 7 : 6
+
   return (
     <Layout pageTitle="product">
       <AddProductModal
@@ -231,13 +259,20 @@ function Products() {
         editingProduct={editingProduct}
         categories={categories}
         products={products}
+        isAdmin={isAdmin()}
       />
       <SaleModal
         isOpen={isSaleModalOpen}
         onClose={() => setIsSaleModalOpen(false)}
         onSaleComplete={fetchProducts}
       />
-      <div className="p-3 sm:p-4 md:p-6">
+      <ProductDetailModal
+        isOpen={!!selectedProduct}
+        onClose={handleDetailClose}
+        product={selectedProduct}
+        isAdmin={isAdmin()}
+      />
+      <div className="ui-page">
         {/* Page Header */}
         <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:gap-4">
           <div className="flex items-start justify-between gap-2">
@@ -259,7 +294,7 @@ function Products() {
               {(isAdmin() || isStaff()) && (
                 <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="px-3 py-2 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-[#357abd] transition-colors whitespace-nowrap"
+                  className="ui-btn px-3 bg-primary-blue text-white hover:bg-[#357abd] whitespace-nowrap"
                 >
                   + Add
                 </button>
@@ -267,7 +302,7 @@ function Products() {
               {(isAdmin() || isStaff()) && (
                 <button
                   onClick={() => setIsSaleModalOpen(true)}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
+                  className="ui-btn px-3 bg-green-600 text-white hover:bg-green-700 whitespace-nowrap"
                 >
                   Record Sale
                 </button>
@@ -317,7 +352,7 @@ function Products() {
               {(isAdmin() || isStaff()) && (
                 <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="px-4 py-2 bg-primary-blue text-white rounded-lg font-medium hover:bg-[#357abd] transition-colors whitespace-nowrap"
+                  className="ui-btn bg-primary-blue text-white hover:bg-[#357abd] whitespace-nowrap"
                 >
                   + Add product
                 </button>
@@ -326,7 +361,7 @@ function Products() {
               {(isAdmin() || isStaff()) && (
                 <button
                   onClick={() => setIsSaleModalOpen(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
+                  className="ui-btn bg-green-600 text-white hover:bg-green-700 whitespace-nowrap"
                 >
                   Record Sale
                 </button>
@@ -336,31 +371,34 @@ function Products() {
         </div>
 
         {/* Products - Desktop Table View */}
-        <div className="hidden md:block bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="hidden lg:block bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full ui-table">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Name of product</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Status</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Price</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Stock info</th>
-                  <th className="text-left py-4 px-6 text-gray-600 font-semibold">Categories</th>
+                  <th className="text-left text-gray-600 font-semibold">Name of product</th>
+                  <th className="text-left text-gray-600 font-semibold">Status</th>
+                  {isAdmin() && (
+                    <th className="text-left text-gray-600 font-semibold">Cost</th>
+                  )}
+                  <th className="text-left text-gray-600 font-semibold">Selling Price</th>
+                  <th className="text-left text-gray-600 font-semibold">Stock info</th>
+                  <th className="text-left text-gray-600 font-semibold">Categories</th>
                   {(isAdmin() || isStaff()) && (
-                    <th className="text-left py-4 px-6 text-gray-600 font-semibold">Actions</th>
+                    <th className="text-left text-gray-600 font-semibold">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="py-8 text-center text-gray-400">
+                    <td colSpan={tableColSpan} className="py-8 text-center text-gray-400">
                       Loading products...
                     </td>
                   </tr>
                 ) : filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-8 text-center text-gray-400">
+                    <td colSpan={tableColSpan} className="py-8 text-center text-gray-400">
                       {searchQuery 
                         ? `No products found matching "${searchQuery}"`
                         : categoryFilter 
@@ -371,32 +409,44 @@ function Products() {
                   </tr>
                 ) : (
                   filteredProducts.map((product) => (
-                    <tr key={product.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-6">
+                    <tr
+                      key={product.id}
+                      onClick={() => handleProductClick(product)}
+                      className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      <td>
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 relative">
+                          <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-200 flex-shrink-0 relative">
                             {renderProductImage(product)}
                             {product.image ? renderProductImageFallback(product) : null}
                           </div>
                           <span className="font-medium text-gray-900">{product.name}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-6">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(product.status)}`}>
+                      <td>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(product.status)}`}>
                           {product.status}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-gray-900 font-semibold">
+                      {isAdmin() && (
+                        <td className="text-gray-600">
+                          ₱{parseFloat(product.cost || 0).toFixed(2)}
+                        </td>
+                      )}
+                      <td className="text-gray-900 font-semibold">
                         ₱{parseFloat(product.price || 0).toFixed(2)}
                       </td>
-                      <td className="py-4 px-6 text-gray-600">
-                        {product.stock} in Stock
+                      <td className="text-gray-600">
+                        <div>{product.stock} in Stock</div>
+                        {productHasSizes(product) && (
+                          <div className="text-xs text-primary-blue mt-1">Click to view sizes</div>
+                        )}
                       </td>
-                      <td className="py-4 px-6 text-gray-600">
+                      <td className="text-gray-600">
                         {product.category_name || product.category}
                       </td>
                       {(isAdmin() || isStaff()) && (
-                        <td className="py-4 px-6">
+                        <td onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleEditProduct(product)}
@@ -426,7 +476,7 @@ function Products() {
         </div>
 
         {/* Products - Mobile Card View */}
-        <div className="md:hidden space-y-3">
+        <div className="lg:hidden space-y-3">
           {loading ? (
             <div className="text-center py-8 text-gray-400">Loading products...</div>
           ) : filteredProducts.length === 0 ? (
@@ -440,7 +490,11 @@ function Products() {
             </div>
           ) : (
             filteredProducts.map((product) => (
-              <div key={product.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+              <div
+                key={product.id}
+                onClick={() => handleProductClick(product)}
+                className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm cursor-pointer active:bg-gray-50"
+              >
                 {/* Product Image and Header */}
                 <div className="relative">
                   <div className="w-full h-48 bg-gray-200 overflow-hidden relative">
@@ -464,18 +518,26 @@ function Products() {
                   {/* Price and Stock */}
                   <div className="flex justify-between items-center pt-3 border-t border-gray-100">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Price</p>
+                      <p className="text-xs text-gray-500 mb-1">Selling Price</p>
                       <p className="text-xl font-bold text-gray-900">₱{parseFloat(product.price || 0).toFixed(2)}</p>
+                      {isAdmin() && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Cost: ₱{parseFloat(product.cost || 0).toFixed(2)}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-500 mb-1">Stock</p>
                       <p className="text-xl font-bold text-gray-900">{product.stock}</p>
+                      {productHasSizes(product) && (
+                        <p className="text-xs text-primary-blue mt-1">Tap to view sizes</p>
+                      )}
                     </div>
                   </div>
                   
                   {/* Action Buttons */}
                   {(isAdmin() || isStaff()) && (
-                    <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleEditProduct(product)}
                         className="flex-1 px-4 py-2.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors min-h-[44px]"

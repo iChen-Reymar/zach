@@ -94,14 +94,14 @@ function Home() {
         isOpen={isAllOrdersModalOpen}
         onClose={() => setIsAllOrdersModalOpen(false)}
       />
-      <div className="p-4 sm:p-6">
+      <div className="ui-page">
         {canManageSales && stats && (
           <div className="mb-4 sm:mb-6">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-bold text-gray-900">Sales Statistics</h2>
               <button
                 onClick={() => navigate('/reports')}
-                className="text-primary-blue hover:underline text-sm font-medium"
+                className="min-h-[44px] px-2 text-primary-blue hover:underline text-sm font-medium"
               >
                 View full report
               </button>
@@ -127,7 +127,7 @@ function Home() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Stock numbers</h2>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -153,7 +153,7 @@ function Home() {
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">Top categories</h2>
               <button
@@ -188,7 +188,7 @@ function Home() {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">
               {canManageSales ? 'Recent sales' : 'My orders'}
@@ -203,7 +203,7 @@ function Home() {
             )}
           </div>
 
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
@@ -254,7 +254,7 @@ function Home() {
             </table>
           </div>
 
-          <div className="md:hidden space-y-3">
+          <div className="lg:hidden space-y-3">
             {loading ? (
               <div className="text-center py-8 text-gray-400">Loading...</div>
             ) : orders.length === 0 ? (

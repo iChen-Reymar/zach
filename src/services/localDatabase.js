@@ -45,11 +45,13 @@ const SCHEMA = `
     name TEXT NOT NULL,
     stock INTEGER NOT NULL,
     price REAL DEFAULT 0,
+    cost REAL DEFAULT 0,
     status TEXT NOT NULL,
     category_id TEXT,
     category_name TEXT,
     image TEXT,
     barcode TEXT,
+    sizes TEXT,
     created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
@@ -272,6 +274,8 @@ function rebuildOrdersTableIfNeeded() {
 function migrateSchema() {
   if (getTableColumns('products').length > 0) {
     addColumnIfMissing('products', 'barcode', 'TEXT')
+    addColumnIfMissing('products', 'sizes', 'TEXT')
+    addColumnIfMissing('products', 'cost', 'REAL DEFAULT 0')
     if (hasColumn('products', 'barcode')) {
       runSafe('products-barcode-index', () => db.run('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)'))
     }
@@ -346,6 +350,16 @@ function rowToCategory(row) {
   }
 }
 
+function parseProductSizes(value) {
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 function rowToProduct(row) {
   if (!row) return null
   return {
@@ -353,11 +367,13 @@ function rowToProduct(row) {
     name: row.name,
     stock: row.stock,
     price: row.price ?? 0,
+    cost: row.cost ?? 0,
     status: row.status,
     category_id: row.category_id,
     category_name: row.category_name,
     image: row.image,
     barcode: row.barcode || null,
+    sizes: parseProductSizes(row.sizes),
     created_at: row.created_at
   }
 }
@@ -834,20 +850,23 @@ export const localDatabase = {
   },
 
   async saveProduct(product) {
+    const sizesJson = product.sizes ? JSON.stringify(product.sizes) : null
     run(
       `INSERT OR REPLACE INTO products
-        (id, name, stock, price, status, category_id, category_name, image, barcode, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, name, stock, price, cost, status, category_id, category_name, image, barcode, sizes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         product.id,
         product.name,
         product.stock,
         product.price ?? 0,
+        product.cost ?? 0,
         product.status,
         product.category_id,
         product.category_name,
         product.image,
         product.barcode || null,
+        sizesJson,
         product.created_at
       ]
     )
@@ -1015,6 +1034,14 @@ export const localDatabase = {
     const rows = queryAll(
       'SELECT * FROM orders WHERE order_date >= ? ORDER BY order_date DESC',
       [sinceIso]
+    )
+    return rows.map(rowToOrder)
+  },
+
+  async getOrdersBetween(startIso, endIso) {
+    const rows = queryAll(
+      'SELECT * FROM orders WHERE order_date >= ? AND order_date <= ? ORDER BY order_date DESC',
+      [startIso, endIso]
     )
     return rows.map(rowToOrder)
   },
