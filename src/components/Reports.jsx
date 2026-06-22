@@ -269,7 +269,10 @@ function Reports() {
                             <td className="whitespace-nowrap">
                               {new Date(order.order_date).toLocaleString()}
                             </td>
-                            <td>{order.product_name}</td>
+                            <td>
+                              {order.product_name}
+                              {order.size ? <span className="text-gray-500"> · EU {order.size}</span> : null}
+                            </td>
                             <td>{order.quantity}</td>
                             <td className="font-semibold text-green-700">
                               {formatMoney(order.total_amount)}
@@ -294,6 +297,7 @@ function Reports() {
                         <p className="text-xs text-gray-500">{new Date(order.order_date).toLocaleString()}</p>
                         <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                           <div><span className="text-gray-500">Qty:</span> {order.quantity}</div>
+                          <div><span className="text-gray-500">Size:</span> {order.size ? `EU ${order.size}` : '—'}</div>
                           <div><span className="text-gray-500">Staff:</span> {order.staff_name || '—'}</div>
                           <div><span className="text-gray-500">Payment:</span> <span className="capitalize">{order.payment_method || 'cash'}</span></div>
                           <div><span className="text-gray-500">Discount:</span> {Number(order.discount) > 0 ? formatMoney(order.discount) : '—'}</div>

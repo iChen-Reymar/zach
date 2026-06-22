@@ -59,6 +59,7 @@ export const orderService = {
         staff_id: order.staff_id || null,
         staff_name: order.staff_name || null,
         payment_method: order.payment_method || 'cash',
+        size: order.size || null,
         order_date: order.order_date || new Date().toISOString()
       }
 
@@ -67,7 +68,8 @@ export const orderService = {
       if (order.product_id) {
         const stockResult = await localDatabase.decrementProductStock(
           order.product_id,
-          order.quantity
+          order.quantity,
+          order.size || null
         )
 
         if (!stockResult.success) {

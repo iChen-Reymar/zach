@@ -1,5 +1,6 @@
 import initSqlJs from 'sql.js/dist/sql-wasm.js'
 import { isElectron } from '../utils/isElectron'
+import { normalizeSizes, getTotalStockFromSizes } from '../utils/shoeSizes'
 
 const SQLITE_STORAGE_KEY = 'inventory_co_sqlite'
 export const DEFAULT_ADMIN_EMAIL = 'zach@gmail.com'
@@ -290,6 +291,7 @@ function migrateSchema() {
   addColumnIfMissing('orders', 'staff_id', 'TEXT')
   addColumnIfMissing('orders', 'staff_name', 'TEXT')
   addColumnIfMissing('orders', 'payment_method', "TEXT DEFAULT 'cash'")
+  addColumnIfMissing('orders', 'size', 'TEXT')
 
   rebuildOrdersTableIfNeeded()
 
@@ -422,6 +424,7 @@ function rowToOrder(row) {
     staff_id: row.staff_id || null,
     staff_name: row.staff_name || null,
     payment_method: row.payment_method || 'cash',
+    size: row.size || null,
     order_date: row.order_date
   }
 }
@@ -879,11 +882,50 @@ export const localDatabase = {
     return true
   },
 
-  async decrementProductStock(productId, quantity) {
+  async decrementProductStock(productId, quantity, size = null) {
     const product = await this.getProductById(productId)
     if (!product) {
       return { success: false, error: 'Product not found' }
     }
+
+    const sizes = normalizeSizes(product.sizes)
+    const hasSizes = Object.keys(sizes).length > 0
+
+    if (hasSizes) {
+      if (!size) {
+        return { success: false, error: 'Please select a size for this product' }
+      }
+
+      const sizeStock = sizes[size] || 0
+      if (sizeStock < quantity) {
+        return {
+          success: false,
+          error: sizeStock > 0
+            ? `Only ${sizeStock} available in EU ${size}`
+            : `EU ${size} is sold out`
+        }
+      }
+
+      const updatedSizes = { ...sizes, [size]: sizeStock - quantity }
+      if (updatedSizes[size] <= 0) {
+        delete updatedSizes[size]
+      }
+
+      const newStock = getTotalStockFromSizes(updatedSizes)
+      let status = 'Active'
+      if (newStock === 0) status = 'Sold'
+      else if (newStock <= 2) status = 'Low stock'
+
+      const updated = {
+        ...product,
+        sizes: Object.keys(updatedSizes).length > 0 ? updatedSizes : null,
+        stock: newStock,
+        status
+      }
+      await this.saveProduct(updated)
+      return { success: true, product: updated }
+    }
+
     if (product.stock < quantity) {
       return { success: false, error: 'Insufficient stock' }
     }
@@ -1009,8 +1051,8 @@ export const localDatabase = {
   async saveOrder(order) {
     run(
       `INSERT OR REPLACE INTO orders
-        (id, customer_id, product_id, product_name, quantity, unit_price, list_unit_price, discount, total_amount, staff_id, staff_name, payment_method, order_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, customer_id, product_id, product_name, quantity, unit_price, list_unit_price, discount, total_amount, staff_id, staff_name, payment_method, size, order_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         order.id,
         order.customer_id,
@@ -1024,6 +1066,7 @@ export const localDatabase = {
         order.staff_id || null,
         order.staff_name || null,
         order.payment_method || 'cash',
+        order.size || null,
         order.order_date
       ]
     )

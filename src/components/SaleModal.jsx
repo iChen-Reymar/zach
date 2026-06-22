@@ -2,11 +2,13 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { productService } from '../services/productService'
 import { orderService } from '../services/orderService'
 import { useAuth } from '../contexts/AuthContext'
+import { normalizeSizes, sortSizeEntries, formatSizeLabel } from '../utils/shoeSizes'
 
 function SaleModal({ isOpen, onClose, onSaleComplete }) {
   const { user, profile } = useAuth()
   const [products, setProducts] = useState([])
   const [selectedProduct, setSelectedProduct] = useState('')
+  const [selectedSize, setSelectedSize] = useState('')
   const [productSearch, setProductSearch] = useState('')
   const [showProductList, setShowProductList] = useState(false)
   const [quantity, setQuantity] = useState(1)
@@ -24,6 +26,7 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
       setError('')
       setSuccess('')
       setProductSearch('')
+      setSelectedSize('')
       setShowProductList(false)
       setSaleUnitPrice('')
       setDiscountAmount('')
@@ -71,6 +74,14 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
   }, [products, productSearch])
 
   const selectedProductData = products.find((p) => p.id === selectedProduct)
+  const availableSizes = useMemo(() => {
+    if (!selectedProductData) return []
+    return sortSizeEntries(selectedProductData.sizes)
+  }, [selectedProductData])
+  const productHasSizes = availableSizes.length > 0
+  const selectedSizeStock = productHasSizes
+    ? (normalizeSizes(selectedProductData?.sizes)[selectedSize] || 0)
+    : (selectedProductData?.stock || 0)
   const listUnitPrice = parseFloat(selectedProductData?.price || 0)
   const parsedSaleUnitPrice = parseFloat(saleUnitPrice)
   const parsedQuantity = parseInt(quantity || 1, 10)
@@ -81,15 +92,24 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
 
   const handleSelectProduct = (product) => {
     setSelectedProduct(product.id)
+    setSelectedSize('')
     setProductSearch(product.name)
     setSaleUnitPrice(String(parseFloat(product.price || 0)))
     setDiscountAmount('0')
+    setQuantity(1)
     setShowProductList(false)
+    setError('')
+  }
+
+  const handleSelectSize = (size) => {
+    setSelectedSize(size)
+    setQuantity(1)
     setError('')
   }
 
   const handleClearProduct = () => {
     setSelectedProduct('')
+    setSelectedSize('')
     setProductSearch('')
     setSaleUnitPrice('')
     setDiscountAmount('')
@@ -139,8 +159,17 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
       return
     }
 
-    if (quantity > selectedProductData.stock) {
-      setError(`Only ${selectedProductData.stock} items available`)
+    if (productHasSizes && !selectedSize) {
+      setError('Please select a size for the buyer')
+      return
+    }
+
+    if (quantity > selectedSizeStock) {
+      setError(
+        productHasSizes
+          ? `Only ${selectedSizeStock} available in EU ${selectedSize}`
+          : `Only ${selectedSizeStock} items available`
+      )
       return
     }
 
@@ -171,17 +200,20 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
         total_amount: parseFloat(totalAmount),
         staff_id: user?.id,
         staff_name: profile?.name || user?.email || 'Staff',
-        payment_method: paymentMethod
+        payment_method: paymentMethod,
+        size: productHasSizes ? selectedSize : null
       })
 
       if (orderError) throw new Error(orderError.message || 'Sale failed')
 
+      const sizeLabel = productHasSizes ? ` · EU ${selectedSize}` : ''
       setSuccess(
-        `Sale recorded! Total: ₱${totalAmount}${parsedDiscount > 0 ? ` (Discount: ₱${parsedDiscount.toFixed(2)})` : ''}`
+        `Sale recorded! Total: ₱${totalAmount}${sizeLabel}${parsedDiscount > 0 ? ` (Discount: ₱${parsedDiscount.toFixed(2)})` : ''}`
       )
       if (onSaleComplete) await onSaleComplete()
 
       setSelectedProduct('')
+      setSelectedSize('')
       setProductSearch('')
       setSaleUnitPrice('')
       setDiscountAmount('')
@@ -282,21 +314,52 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
 
             {selectedProductData && !showProductList && (
               <p className="mt-2 text-xs text-green-700">
-                Selected: {selectedProductData.name} (List: ₱{listUnitPrice.toFixed(2)}, Stock: {selectedProductData.stock})
+                Selected: {selectedProductData.name} (List: ₱{listUnitPrice.toFixed(2)}, Stock: {selectedProductData.stock}
+                {productHasSizes && selectedSize ? ` · EU ${selectedSize}: ${selectedSizeStock}` : ''})
               </p>
             )}
           </div>
+
+          {selectedProductData && productHasSizes && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Size (EU) *</label>
+              <p className="text-xs text-gray-500 mb-2">Only available sizes are shown. Sold-out sizes are hidden.</p>
+              <div className="grid grid-cols-4 gap-2">
+                {availableSizes.map(([size, qty]) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => handleSelectSize(size)}
+                    className={`flex flex-col items-center rounded-lg border p-2 transition-colors ${
+                      selectedSize === size
+                        ? 'border-primary-blue bg-blue-50 ring-2 ring-primary-blue'
+                        : 'border-gray-200 bg-white hover:border-primary-blue hover:bg-blue-50'
+                    }`}
+                  >
+                    <span className="text-base font-bold text-gray-900">{size}</span>
+                    <span className="text-[10px] text-gray-500">{formatSizeLabel(size)}</span>
+                    <span className="text-xs font-semibold text-primary-blue mt-1">{qty} left</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Quantity *</label>
             <input
               type="number"
               min="1"
+              max={selectedProductData ? Math.max(1, selectedSizeStock) : undefined}
               value={quantity}
               onChange={(e) => handleQuantityChange(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue"
+              disabled={productHasSizes && !selectedSize}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-blue disabled:bg-gray-100 disabled:text-gray-400"
               required
             />
+            {productHasSizes && !selectedSize && (
+              <p className="text-xs text-gray-500 mt-1">Select a size first</p>
+            )}
           </div>
 
           {selectedProductData && (
@@ -370,7 +433,11 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
               </div>
               <div className="flex justify-between mt-1 text-gray-500">
                 <span>Stock after sale</span>
-                <span>{Math.max(0, selectedProductData.stock - parsedQuantity)}</span>
+                <span>
+                  {productHasSizes && selectedSize
+                    ? `EU ${selectedSize}: ${Math.max(0, selectedSizeStock - parsedQuantity)} · Total: ${Math.max(0, selectedProductData.stock - parsedQuantity)}`
+                    : Math.max(0, selectedProductData.stock - parsedQuantity)}
+                </span>
               </div>
             </div>
           )}
@@ -388,7 +455,7 @@ function SaleModal({ isOpen, onClose, onSaleComplete }) {
             </button>
             <button
               type="submit"
-              disabled={loading || !selectedProduct}
+              disabled={loading || !selectedProduct || (productHasSizes && !selectedSize)}
               className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Complete Sale'}
