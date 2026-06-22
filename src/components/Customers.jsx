@@ -17,7 +17,7 @@ function Customers() {
   }, [])
 
   const fetchCustomers = async () => {
-    try {F
+    try {
       setLoading(true)
       setError(null)
       const { data, error } = await customerService.getAllCustomers()
@@ -25,13 +25,18 @@ function Customers() {
       setCustomers(data || [])
     } catch (err) {
       console.error('Error fetching customers:', err)
-      setError('Failed to load customers. Using local data.')
-      // Fallback to empty array if database fails
+      setError('Failed to load customers.')
       setCustomers([])
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const handleFocus = () => fetchCustomers()
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
 
   const handleAddCustomer = async (newCustomer) => {
     try {
@@ -82,6 +87,8 @@ function Customers() {
       </span>
     )
   }
+
+  const pendingCount = customers.filter((c) => c.status === 'pending').length
 
   return (
     <Layout pageTitle="customers">
@@ -140,13 +147,24 @@ function Customers() {
 
           {/* Add Customer Button */}
           {(isAdmin() || isStaff()) && (
-            <div className="flex items-center justify-end mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              {pendingCount > 0 && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  {pendingCount} account{pendingCount !== 1 ? 's' : ''} waiting for approval
+                </p>
+              )}
               <button 
                 onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-primary-blue text-white rounded-lg font-medium hover:bg-[#357abd] transition-colors"
+                className="ui-btn bg-primary-blue text-white hover:bg-[#357abd] sm:ml-auto"
               >
                 + Add Customer
               </button>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
+              {error}
             </div>
           )}
         </div>
@@ -159,6 +177,7 @@ function Customers() {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">ID</th>
                   <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">Name</th>
+                  <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">Email</th>
                   <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">Status</th>
                   <th className="text-left py-2.5 px-4 text-gray-600 font-semibold">Actions</th>
                 </tr>
@@ -166,13 +185,13 @@ function Customers() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="4" className="py-8 text-center text-gray-400">
+                    <td colSpan="5" className="py-8 text-center text-gray-400">
                       Loading customers...
                     </td>
                   </tr>
                 ) : customers.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="py-8 text-center text-gray-400">
+                    <td colSpan="5" className="py-8 text-center text-gray-400">
                       No customers found
                     </td>
                   </tr>
@@ -184,6 +203,9 @@ function Customers() {
                       </td>
                       <td className="py-2.5 px-4 text-gray-900 font-medium">
                         {customer.name}
+                      </td>
+                      <td className="py-2.5 px-4 text-gray-600">
+                        {customer.email || '—'}
                       </td>
                       <td className="py-2.5 px-4">
                         {getStatusBadge(customer.status)}
@@ -237,6 +259,10 @@ function Customers() {
                 <div>
                   <p className="text-xs text-gray-500">Name</p>
                   <p className="text-base font-medium text-gray-900">{customer.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Email</p>
+                  <p className="text-sm text-gray-700 break-all">{customer.email || '—'}</p>
                 </div>
                 {customer.status === 'pending' && (isAdmin() || user) && (
                   <div className="flex gap-2 pt-2 border-t border-gray-100">

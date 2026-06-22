@@ -7,7 +7,6 @@ import ProductDetailModal from './ProductDetailModal'
 import { useAuth } from '../contexts/AuthContext'
 import { productService } from '../services/productService'
 import { categoryService } from '../services/categoryService'
-import { normalizeSizes } from '../utils/shoeSizes'
 
 function Products() {
   const navigate = useNavigate()
@@ -23,11 +22,6 @@ function Products() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const { user, isAdmin, isStaff } = useAuth()
-  
-  // Check if user is a customer (not admin or staff)
-  const isCustomer = () => {
-    return !isAdmin() && !isStaff()
-  }
 
   // Fetch products and categories from database
   useEffect(() => {
@@ -96,29 +90,10 @@ function Products() {
     }
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Active':
-        return 'bg-primary-blue text-white'
-      case 'Low stock':
-        return 'bg-black text-white'
-      case 'Sold':
-        return 'bg-gray-300 text-gray-700'
-      default:
-        return 'bg-gray-200 text-gray-700'
-    }
-  }
-
-  const getStatusFromStock = (stock) => {
-    if (stock === 0) return 'Sold'
-    if (stock <= 2) return 'Low stock'
-    return 'Active'
-  }
-
   const renderProductImage = (product, className = 'w-full h-full object-cover') => {
     if (!product.image) {
       return (
-        <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 font-semibold">
+        <div className={`flex items-center justify-center bg-gray-200 text-gray-500 font-semibold ${className}`}>
           {product.name.charAt(0).toUpperCase()}
         </div>
       )
@@ -137,9 +112,30 @@ function Products() {
     )
   }
 
+  const renderProductCardImage = (product) => {
+    const imageClass = 'max-h-full max-w-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.15)]'
+
+    if (!product.image) {
+      return (
+        <div className="flex h-28 w-full items-center justify-center text-3xl font-bold text-gray-400 sm:h-32">
+          {product.name.charAt(0).toUpperCase()}
+        </div>
+      )
+    }
+
+    return (
+      <div className="relative flex h-28 w-full items-center justify-center sm:h-32">
+        {renderProductImage(product, imageClass)}
+        {renderProductImageFallback(product)}
+      </div>
+    )
+  }
+
   const renderProductImageFallback = (product) => (
-    <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-200 text-gray-500 font-semibold">
-      {product.name.charAt(0).toUpperCase()}
+    <div className="absolute inset-0 hidden bg-gray-200 text-gray-500 font-semibold">
+      <div className="flex h-full items-center justify-center">
+        {product.name.charAt(0).toUpperCase()}
+      </div>
     </div>
   )
 
@@ -247,8 +243,78 @@ function Products() {
     setSelectedProduct(null)
   }
 
-  const productHasSizes = (product) => Object.keys(normalizeSizes(product.sizes)).length > 0
-  const tableColSpan = isAdmin() ? 7 : 6
+  const renderProductCard = (product) => (
+    <div
+      key={product.id}
+      className="flex flex-col rounded-2xl bg-[#f3f3f3] p-3 sm:p-4 cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-[0.98]"
+      onClick={() => handleProductClick(product)}
+    >
+      <div className="mb-3 flex items-center justify-center">
+        {renderProductCardImage(product)}
+      </div>
+
+      <div className="mt-auto flex items-end justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-bold text-gray-900 sm:text-base">{product.name}</h3>
+          <p className="mt-0.5 text-sm text-gray-900 sm:text-base">
+            ₱{parseFloat(product.price || 0).toFixed(2)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleProductClick(product)
+          }}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-gray-900 shadow-sm transition-colors hover:bg-gray-50"
+          aria-label={`View ${product.name}`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {(isAdmin() || isStaff()) && (
+        <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => handleEditProduct(product)}
+            className="flex-1 rounded-lg bg-blue-500 px-3 py-2 text-xs font-medium text-white hover:bg-blue-600 sm:text-sm"
+          >
+            Edit
+          </button>
+          {isAdmin() && (
+            <button
+              onClick={() => handleDeleteProduct(product.id)}
+              className="flex-1 rounded-lg bg-red-500 px-3 py-2 text-xs font-medium text-white hover:bg-red-600 sm:text-sm"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderProductGrid = () => {
+    if (loading) {
+      return <div className="col-span-full py-12 text-center text-gray-400">Loading products...</div>
+    }
+
+    if (filteredProducts.length === 0) {
+      return (
+        <div className="col-span-full py-12 text-center text-gray-400">
+          {searchQuery
+            ? `No products found matching "${searchQuery}"`
+            : categoryFilter
+              ? `No products found in ${categoryFilter} category`
+              : 'No products found'}
+        </div>
+      )
+    }
+
+    return filteredProducts.map(renderProductCard)
+  }
 
   return (
     <Layout pageTitle="product">
@@ -370,194 +436,9 @@ function Products() {
           </div>
         </div>
 
-        {/* Products - Desktop Table View */}
-        <div className="hidden lg:block bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full ui-table">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left text-gray-600 font-semibold">Name of product</th>
-                  <th className="text-left text-gray-600 font-semibold">Status</th>
-                  {isAdmin() && (
-                    <th className="text-left text-gray-600 font-semibold">Cost</th>
-                  )}
-                  <th className="text-left text-gray-600 font-semibold">Selling Price</th>
-                  <th className="text-left text-gray-600 font-semibold">Stock info</th>
-                  <th className="text-left text-gray-600 font-semibold">Categories</th>
-                  {(isAdmin() || isStaff()) && (
-                    <th className="text-left text-gray-600 font-semibold">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={tableColSpan} className="py-8 text-center text-gray-400">
-                      Loading products...
-                    </td>
-                  </tr>
-                ) : filteredProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={tableColSpan} className="py-8 text-center text-gray-400">
-                      {searchQuery 
-                        ? `No products found matching "${searchQuery}"`
-                        : categoryFilter 
-                          ? `No products found in ${categoryFilter} category`
-                          : 'No products found'
-                      }
-                    </td>
-                  </tr>
-                ) : (
-                  filteredProducts.map((product) => (
-                    <tr
-                      key={product.id}
-                      onClick={() => handleProductClick(product)}
-                      className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-200 flex-shrink-0 relative">
-                            {renderProductImage(product)}
-                            {product.image ? renderProductImageFallback(product) : null}
-                          </div>
-                          <span className="font-medium text-gray-900">{product.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(product.status)}`}>
-                          {product.status}
-                        </span>
-                      </td>
-                      {isAdmin() && (
-                        <td className="text-gray-600">
-                          ₱{parseFloat(product.cost || 0).toFixed(2)}
-                        </td>
-                      )}
-                      <td className="text-gray-900 font-semibold">
-                        ₱{parseFloat(product.price || 0).toFixed(2)}
-                      </td>
-                      <td className="text-gray-600">
-                        <div>{product.stock} in Stock</div>
-                        {productHasSizes(product) && (
-                          <div className="text-xs text-primary-blue mt-1">Click to view sizes</div>
-                        )}
-                      </td>
-                      <td className="text-gray-600">
-                        {product.category_name || product.category}
-                      </td>
-                      {(isAdmin() || isStaff()) && (
-                        <td onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleEditProduct(product)}
-                              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
-                              title="Edit"
-                            >
-                              Edit
-                            </button>
-                            {isAdmin() && (
-                              <button
-                                onClick={() => handleDeleteProduct(product.id)}
-                                className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
-                                title="Delete"
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Products - Mobile Card View */}
-        <div className="lg:hidden space-y-3">
-          {loading ? (
-            <div className="text-center py-8 text-gray-400">Loading products...</div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              {searchQuery 
-                ? `No products found matching "${searchQuery}"`
-                : categoryFilter 
-                  ? `No products found in ${categoryFilter} category`
-                  : 'No products found'
-              }
-            </div>
-          ) : (
-            filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                onClick={() => handleProductClick(product)}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm cursor-pointer active:bg-gray-50"
-              >
-                {/* Product Image and Header */}
-                <div className="relative">
-                  <div className="w-full h-48 bg-gray-200 overflow-hidden relative">
-                    {renderProductImage(product)}
-                    {product.image ? renderProductImageFallback(product) : null}
-                  </div>
-                  <div className="absolute top-2 right-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(product.status)}`}>
-                      {product.status}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Product Info */}
-                <div className="p-4 space-y-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-semibold text-gray-900 leading-tight break-words">{product.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{product.category_name || product.category}</p>
-                  </div>
-                  
-                  {/* Price and Stock */}
-                  <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Selling Price</p>
-                      <p className="text-xl font-bold text-gray-900">₱{parseFloat(product.price || 0).toFixed(2)}</p>
-                      {isAdmin() && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Cost: ₱{parseFloat(product.cost || 0).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500 mb-1">Stock</p>
-                      <p className="text-xl font-bold text-gray-900">{product.stock}</p>
-                      {productHasSizes(product) && (
-                        <p className="text-xs text-primary-blue mt-1">Tap to view sizes</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  {(isAdmin() || isStaff()) && (
-                    <div className="flex items-center gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => handleEditProduct(product)}
-                        className="flex-1 px-4 py-2.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors min-h-[44px]"
-                      >
-                        Edit
-                      </button>
-                      {isAdmin() && (
-                        <button
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="flex-1 px-4 py-2.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 active:bg-red-700 transition-colors min-h-[44px]"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
+        {/* Products - Card Grid */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {renderProductGrid()}
         </div>
       </div>
     </Layout>
