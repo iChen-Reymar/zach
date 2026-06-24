@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 import { initSupabase } from './services/supabaseDatabase'
-import { isSupabaseConfigured, testSupabaseConnection } from './lib/supabase'
+import { isSupabaseConfigured, supabaseConfigHint, testSupabaseConnection } from './lib/supabase'
 import { isElectron } from './utils/isElectron'
 import { assetPath } from './utils/assetPath'
 
@@ -47,10 +47,7 @@ function ErrorScreen({ message }) {
         <h2 className="text-xl font-bold mb-2">Unable to start ZCH Footwear Shop</h2>
         <p className="text-blue-100 text-sm mb-4">{message}</p>
         {!isSupabaseConfigured && (
-          <p className="text-blue-200/80 text-xs mb-4">
-            Add <strong>VITE_SUPABASE_URL</strong> and <strong>VITE_SUPABASE_ANON_KEY</strong> to your
-            <strong> .env</strong> file, then restart the dev server.
-          </p>
+          <p className="text-blue-200/80 text-xs mb-4">{supabaseConfigHint}</p>
         )}
         <button
           type="button"
@@ -74,7 +71,7 @@ function BootstrapApp() {
     setupServiceWorker()
       .then(() => {
         if (!isSupabaseConfigured) {
-          throw new Error('Supabase is not configured. Check your .env file and restart the dev server.')
+          throw new Error(`Supabase is not configured. ${supabaseConfigHint}`)
         }
         return initSupabase()
       })

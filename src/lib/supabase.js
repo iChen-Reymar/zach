@@ -21,10 +21,12 @@ export const supabaseUrl = remoteSupabaseUrl
 
 export const isSupabaseConfigured = Boolean(remoteSupabaseUrl && supabaseAnonKey)
 
+export const supabaseConfigHint = import.meta.env.PROD
+  ? 'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel → Project → Settings → Environment Variables, then redeploy.'
+  : 'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file, then restart the dev server.'
+
 if (!isSupabaseConfigured) {
-  console.error(
-    'SUPABASE NOT CONFIGURED: Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file, then restart the dev server.'
-  )
+  console.error(`SUPABASE NOT CONFIGURED: ${supabaseConfigHint}`)
 } else if (import.meta.env.DEV) {
   console.info('[Supabase] Remote:', remoteSupabaseUrl)
   if (typeof window !== 'undefined') {
