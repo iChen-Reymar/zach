@@ -1,4 +1,4 @@
-import { localDatabase } from './localDatabase'
+import { supabaseDatabase } from './supabaseDatabase'
 import { productService } from './productService'
 import { endOfDay, startOfDay } from '../utils/dateRange'
 import { isUtangPayment, isUtangPaid, isUtangUnpaid, getUtangPaidAmount, getUtangRemaining } from '../utils/paymentMethod'
@@ -89,7 +89,7 @@ export const statsService = {
     else if (period === 'monthly') since = startOfMonth(now)
     else since = startOfDay(now)
 
-    const orders = await localDatabase.getOrdersSince(since.toISOString())
+    const orders = await supabaseDatabase.getOrdersSince(since.toISOString())
     return { period, since: since.toISOString(), ...summarizeOrders(orders) }
   },
 
@@ -109,7 +109,7 @@ export const statsService = {
   async getDateRangeStats(startDate, endDate) {
     const start = startOfDay(startDate)
     const end = endOfDay(endDate)
-    const orders = await localDatabase.getOrdersBetween(start.toISOString(), end.toISOString())
+    const orders = await supabaseDatabase.getOrdersBetween(start.toISOString(), end.toISOString())
     return {
       period: 'custom',
       since: start.toISOString(),

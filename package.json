@@ -9,6 +9,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
+    "dev:restart": "node scripts/kill-dev-port.mjs && vite",
     "build": "vite build",
     "postbuild": "node scripts/copy-installer.mjs",
     "preview": "vite preview --host",
@@ -18,15 +19,14 @@
     "generate:win-icon": "node scripts/generate-win-icon.mjs",
     "dist": "npm run build && npm run generate:icons && npm run generate:win-icon && electron-builder --win && node scripts/copy-installer.mjs",
     "copy-installer": "node scripts/copy-installer.mjs",
-    "export:data": "node scripts/export-data.mjs",
-    "clear:images": "node scripts/clear-images.mjs"
+    "create:admin": "node scripts/create-admin.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "html5-qrcode": "^2.3.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.21.1",
-    "sql.js": "^1.14.1"
+    "react-router-dom": "^6.21.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

@@ -1,4 +1,4 @@
-import { localDatabase, generateId } from './localDatabase'
+import { supabaseDatabase, generateId } from './supabaseDatabase'
 import { categoryService } from './categoryService'
 import { getTotalStockFromSizes, normalizeSizes } from '../utils/shoeSizes'
 
@@ -11,7 +11,7 @@ function getProductStatus(stock) {
 export const productService = {
   async getAllProducts() {
     try {
-      const data = await localDatabase.getAllProducts()
+      const data = await supabaseDatabase.getAllProducts()
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -20,7 +20,7 @@ export const productService = {
 
   async getProductById(id) {
     try {
-      const data = await localDatabase.getProductById(id)
+      const data = await supabaseDatabase.getProductById(id)
       return data
         ? { data, error: null }
         : { data: null, error: { message: 'Product not found' } }
@@ -51,10 +51,10 @@ export const productService = {
         created_at: new Date().toISOString()
       }
 
-      await localDatabase.saveProduct(data)
+      await supabaseDatabase.saveProduct(data)
 
       if (product.category_id) {
-        const count = await localDatabase.countProductsByCategory(product.category_id)
+        const count = await supabaseDatabase.countProductsByCategory(product.category_id)
         await categoryService.updateItemCount(product.category_id, count)
       }
 
@@ -66,7 +66,7 @@ export const productService = {
 
   async updateProduct(id, updates) {
     try {
-      const currentProduct = await localDatabase.getProductById(id)
+      const currentProduct = await supabaseDatabase.getProductById(id)
       if (!currentProduct) {
         return { data: null, error: { message: 'Product not found' } }
       }
@@ -91,14 +91,14 @@ export const productService = {
         merged.status = getProductStatus(stock)
       }
 
-      await localDatabase.saveProduct(merged)
+      await supabaseDatabase.saveProduct(merged)
 
       if (updates.category_id && oldCategoryId !== updates.category_id) {
         if (oldCategoryId) {
-          const oldCount = await localDatabase.countProductsByCategory(oldCategoryId)
+          const oldCount = await supabaseDatabase.countProductsByCategory(oldCategoryId)
           await categoryService.updateItemCount(oldCategoryId, oldCount)
         }
-        const newCount = await localDatabase.countProductsByCategory(updates.category_id)
+        const newCount = await supabaseDatabase.countProductsByCategory(updates.category_id)
         await categoryService.updateItemCount(updates.category_id, newCount)
       }
 
@@ -110,15 +110,15 @@ export const productService = {
 
   async deleteProduct(id) {
     try {
-      const product = await localDatabase.getProductById(id)
+      const product = await supabaseDatabase.getProductById(id)
       if (!product) {
         return { error: { message: 'Product not found' } }
       }
 
-      await localDatabase.deleteProduct(id)
+      await supabaseDatabase.deleteProduct(id)
 
       if (product.category_id) {
-        const count = await localDatabase.countProductsByCategory(product.category_id)
+        const count = await supabaseDatabase.countProductsByCategory(product.category_id)
         await categoryService.updateItemCount(product.category_id, count)
       }
 

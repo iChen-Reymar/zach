@@ -1,17 +1,17 @@
-import { localDatabase, generateId } from './localDatabase'
+import { supabaseDatabase, generateId } from './supabaseDatabase'
 
 const generateMaskedId = () =>
   '*******-' + Math.random().toString(36).substring(2, 6).toUpperCase()
 
 async function syncProfileRole(userId, role) {
   if (!userId) return
-  await localDatabase.updateProfile(userId, { role })
+  await supabaseDatabase.updateProfile(userId, { role })
 }
 
 export const staffService = {
   async getAllStaff() {
     try {
-      const data = await localDatabase.getAllStaff()
+      const data = await supabaseDatabase.getAllStaff()
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -20,7 +20,7 @@ export const staffService = {
 
   async getStaffById(id) {
     try {
-      const data = await localDatabase.getStaffById(id)
+      const data = await supabaseDatabase.getStaffById(id)
       return data
         ? { data, error: null }
         : { data: null, error: { message: 'Staff not found' } }
@@ -35,7 +35,7 @@ export const staffService = {
       let userId = staff.user_id
 
       if (!userId && staff.email) {
-        const profile = await localDatabase.getProfileByEmail(staff.email)
+        const profile = await supabaseDatabase.getProfileByEmail(staff.email)
         if (profile) userId = profile.id
       }
 
@@ -49,7 +49,7 @@ export const staffService = {
         created_at: new Date().toISOString()
       }
 
-      await localDatabase.saveStaff(data)
+      await supabaseDatabase.saveStaff(data)
 
       if (userId) {
         await syncProfileRole(userId, staffRole)
@@ -63,7 +63,7 @@ export const staffService = {
 
   async updateStaff(id, updates) {
     try {
-      const currentStaff = await localDatabase.getStaffById(id)
+      const currentStaff = await supabaseDatabase.getStaffById(id)
       if (!currentStaff) {
         return { data: null, error: { message: 'Staff not found' } }
       }
@@ -71,7 +71,7 @@ export const staffService = {
       let userId = currentStaff.user_id
       if (!userId && (updates.email || currentStaff.email)) {
         const emailToSearch = updates.email || currentStaff.email
-        const profile = await localDatabase.getProfileByEmail(emailToSearch)
+        const profile = await supabaseDatabase.getProfileByEmail(emailToSearch)
         if (profile) {
           userId = profile.id
           updates.user_id = userId
@@ -79,7 +79,7 @@ export const staffService = {
       }
 
       const data = { ...currentStaff, ...updates, id }
-      await localDatabase.saveStaff(data)
+      await supabaseDatabase.saveStaff(data)
 
       if (userId) {
         await syncProfileRole(userId, updates.role || currentStaff.role)
@@ -93,7 +93,7 @@ export const staffService = {
 
   async deleteStaff(id) {
     try {
-      await localDatabase.deleteStaff(id)
+      await supabaseDatabase.deleteStaff(id)
       return { error: null }
     } catch (error) {
       return { error }
@@ -102,7 +102,7 @@ export const staffService = {
 
   async searchUserByEmailOrName(searchTerm) {
     try {
-      const results = await localDatabase.searchProfiles(searchTerm)
+      const results = await supabaseDatabase.searchProfiles(searchTerm)
       return { data: results[0] || null, error: null }
     } catch (err) {
       return { data: null, error: err }
@@ -111,7 +111,7 @@ export const staffService = {
 
   async checkIfStaffExists(userId) {
     try {
-      const data = await localDatabase.getStaffByUserId(userId)
+      const data = await supabaseDatabase.getStaffByUserId(userId)
       return { data, error: null }
     } catch (err) {
       return { data: null, error: err }
@@ -120,7 +120,7 @@ export const staffService = {
 
   async getStaffByUserId(userId) {
     try {
-      const data = await localDatabase.getStaffByUserId(userId)
+      const data = await supabaseDatabase.getStaffByUserId(userId)
       return { data, error: null }
     } catch (err) {
       return { data: null, error: err }

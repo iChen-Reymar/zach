@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import { authService } from '../services/authService'
 import { staffService } from '../services/staffService'
 import { localStorageService } from '../services/localStorageService'
+import { isSupabaseConfigured } from '../lib/supabase'
 
 const AuthContext = createContext({
   user: null,
@@ -28,7 +29,27 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setLoading(false)
+      return
+    }
+
     checkUser()
+
+    const subscription = authService.onAuthStateChange((authUser) => {
+      if (authUser) {
+        loadUserProfile(authUser).catch((err) => {
+          console.error('Error loading profile on auth change:', err)
+        })
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+    })
+
+    return () => {
+      subscription?.subscription?.unsubscribe()
+    }
   }, [])
 
   const syncProfileRoleFromStaff = async (userId) => {
@@ -144,6 +165,7 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error
       setUser(null)
       setProfile(null)
+      localStorageService.clearAll()
       return { error: null }
     } catch (error) {
       return { error }

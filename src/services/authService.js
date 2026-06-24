@@ -1,96 +1,140 @@
-import {
-  localDatabase,
-  hashPassword,
-  verifyPassword,
-  generateId,
-  DEFAULT_ADMIN_EMAIL
-} from './localDatabase'
+import { requireSupabase, formatSupabaseAuthError } from '../lib/supabase'
+import { supabaseDatabase, generateId } from './supabaseDatabase'
 
 const generateMaskedCustomerId = () =>
   '********-' + Math.random().toString(36).substring(2, 6).toUpperCase()
 
+function mapAuthUser(user) {
+  if (!user) return null
+  return { id: user.id, email: user.email }
+}
+
+function formatAuthError(error) {
+  return formatSupabaseAuthError(error)
+}
+
+async function resolveSignupRole(supabase) {
+  try {
+    const { count, error } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+    if (error) return 'Customer'
+    return (count ?? 0) === 0 ? 'Admin' : 'Customer'
+  } catch {
+    return 'Customer'
+  }
+}
+
 export const authService = {
   async signUp(email, password, name) {
     try {
+      const supabase = requireSupabase()
       const normalizedEmail = email.trim().toLowerCase()
 
       if (!normalizedEmail || !password || !name) {
         return { data: null, error: { message: 'Name, email, and password are required' } }
       }
 
-      const existing = await localDatabase.getUserByEmail(normalizedEmail)
-      if (existing) {
-        return { data: null, error: { message: 'An account with this email already exists' } }
-      }
-
-      const userCount = await localDatabase.countUsers()
-      const isFirstUser = userCount === 0
-      const role = isFirstUser ? 'Admin' : 'Customer'
-
-      const { passwordHash, salt } = await hashPassword(password)
-      const user = await localDatabase.createUser({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: normalizedEmail,
-        passwordHash,
-        salt
+        password,
+        options: {
+          data: { name: name.trim() }
+        }
       })
 
-      const profile = {
-        id: user.id,
-        name: name.trim(),
-        email: normalizedEmail,
-        role,
-        balance: 0,
-        created_at: new Date().toISOString()
-      }
-      await localDatabase.saveProfile(profile)
-
-      if (role === 'Customer') {
-        await localDatabase.saveCustomer({
-          id: generateId(),
-          customer_id: generateMaskedCustomerId(),
-          name: profile.name,
-          email: profile.email,
-          role: 'Customer',
-          user_id: user.id,
-          status: 'pending',
-          approved_by: null,
-          approved_at: null,
-          created_at: new Date().toISOString()
+      if (authError) {
+        console.error('Supabase signup error:', {
+          name: authError.name,
+          message: authError.message,
+          status: authError.status,
+          code: authError.code,
+          msg: authError.msg,
+          cause: authError.cause
         })
+        return { data: null, error: { message: formatAuthError(authError) } }
       }
 
-      await localDatabase.setSessionUserId(user.id)
+      const user = authData.user
+      if (!user) {
+        return { data: null, error: { message: 'Failed to create account. Check your email for a confirmation link.' } }
+      }
+
+      let profile = await supabaseDatabase.getProfile(user.id)
+      if (!profile) {
+        const role = await resolveSignupRole(supabase)
+        profile = {
+          id: user.id,
+          name: name.trim(),
+          email: normalizedEmail,
+          role,
+          balance: 0,
+          created_at: new Date().toISOString()
+        }
+        const { error: profileError } = await supabase.from('profiles').upsert(profile)
+        if (profileError) {
+          console.error('Profile insert error:', profileError)
+          return {
+            data: null,
+            error: {
+              message:
+                profileError.message ||
+                'Account created but profile failed. Run supabase/schema.sql in your Supabase SQL editor.'
+            }
+          }
+        }
+      }
+
+      if (profile.role === 'Customer') {
+        const existingCustomer = await supabaseDatabase.getCustomerByUserId(user.id)
+        if (!existingCustomer) {
+          await supabaseDatabase.saveCustomer({
+            id: generateId(),
+            customer_id: generateMaskedCustomerId(),
+            name: profile.name,
+            email: profile.email,
+            role: 'Customer',
+            user_id: user.id,
+            status: 'pending',
+            approved_by: null,
+            approved_at: null,
+            created_at: new Date().toISOString()
+          })
+        }
+      }
 
       return {
         data: {
-          user: { id: user.id, email: user.email },
+          user: mapAuthUser(user),
           profile
         },
         error: null
       }
     } catch (err) {
+      console.error('Signup error:', err)
       return { data: null, error: { message: err.message || 'Failed to create account' } }
     }
   },
 
   async signIn(email, password) {
     try {
+      const supabase = requireSupabase()
       const normalizedEmail = email.trim().toLowerCase()
-      const user = await localDatabase.getUserByEmail(normalizedEmail)
 
-      if (!user) {
-        return { data: null, error: { message: 'Invalid email or password' } }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password
+      })
+
+      if (error) {
+        const message = error.message?.includes('Invalid login')
+          ? 'Invalid email or password'
+          : formatAuthError(error)
+        return { data: null, error: { message } }
       }
-
-      const valid = await verifyPassword(password, user.passwordHash, user.salt)
-      if (!valid) {
-        return { data: null, error: { message: 'Invalid email or password' } }
-      }
-
-      await localDatabase.setSessionUserId(user.id)
 
       return {
-        data: { user: { id: user.id, email: user.email } },
+        data: { user: mapAuthUser(data.user) },
         error: null
       }
     } catch (err) {
@@ -99,26 +143,22 @@ export const authService = {
   },
 
   async signOut() {
-    await localDatabase.setSessionUserId(null)
+    const supabase = requireSupabase()
+    const { error } = await supabase.auth.signOut()
+    if (error) return { error: { message: error.message } }
     return { error: null }
   },
 
   async getCurrentUser() {
-    const userId = await localDatabase.getSessionUserId()
-    if (!userId) return null
-
-    const user = await localDatabase.getUserById(userId)
-    if (!user) {
-      await localDatabase.setSessionUserId(null)
-      return null
-    }
-
-    return { id: user.id, email: user.email }
+    const supabase = requireSupabase()
+    const { data, error } = await supabase.auth.getUser()
+    if (error || !data.user) return null
+    return mapAuthUser(data.user)
   },
 
   async getUserProfile(userId) {
     try {
-      const profile = await localDatabase.getProfile(userId)
+      const profile = await supabaseDatabase.getProfile(userId)
       if (!profile) {
         return { data: null, error: { message: 'Profile not found' } }
       }
@@ -130,7 +170,7 @@ export const authService = {
 
   async updateProfile(userId, updates) {
     try {
-      const data = await localDatabase.updateProfile(userId, updates)
+      const data = await supabaseDatabase.updateProfile(userId, updates)
       if (!data) {
         return { data: null, error: { message: 'Profile not found' } }
       }
@@ -142,6 +182,8 @@ export const authService = {
 
   async changeOwnPassword(userId, currentPassword, newPassword) {
     try {
+      const supabase = requireSupabase()
+
       if (!currentPassword || !newPassword) {
         return { error: { message: 'Current and new password are required' } }
       }
@@ -152,21 +194,22 @@ export const authService = {
         return { error: { message: 'New password must be different from current password' } }
       }
 
-      const user = await localDatabase.getUserById(userId)
-      if (!user) {
+      const user = await this.getCurrentUser()
+      if (!user || user.id !== userId) {
         return { error: { message: 'User not found' } }
       }
 
-      const valid = await verifyPassword(currentPassword, user.passwordHash, user.salt)
-      if (!valid) {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword
+      })
+      if (verifyError) {
         return { error: { message: 'Current password is incorrect' } }
       }
 
-      const { passwordHash, salt } = await hashPassword(newPassword)
-      await localDatabase.updatePassword(userId, passwordHash, salt)
-
-      if (user.email?.trim().toLowerCase() === DEFAULT_ADMIN_EMAIL) {
-        await localDatabase.setMetaFlag('defaultAdminPasswordCustomized', '1')
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) {
+        return { error: { message: error.message || 'Failed to change password' } }
       }
 
       return { error: null }
@@ -177,6 +220,8 @@ export const authService = {
 
   async setStaffPassword(adminUserId, staffId, newPassword) {
     try {
+      const supabase = requireSupabase()
+
       if (!newPassword) {
         return { error: { message: 'New password is required' } }
       }
@@ -184,12 +229,12 @@ export const authService = {
         return { error: { message: 'Password must be at least 6 characters' } }
       }
 
-      const adminProfile = await localDatabase.getProfile(adminUserId)
+      const adminProfile = await supabaseDatabase.getProfile(adminUserId)
       if (adminProfile?.role !== 'Admin') {
         return { error: { message: 'Only admins can reset staff passwords' } }
       }
 
-      const staff = await localDatabase.getStaffById(staffId)
+      const staff = await supabaseDatabase.getStaffById(staffId)
       if (!staff) {
         return { error: { message: 'Staff member not found' } }
       }
@@ -202,51 +247,83 @@ export const authService = {
 
       const normalizedEmail = staff.email.trim().toLowerCase()
       let userId = staff.user_id
-      let user = userId ? await localDatabase.getUserById(userId) : null
 
-      if (!user) {
-        user = await localDatabase.getUserByEmail(normalizedEmail)
-        if (user) userId = user.id
+      if (!userId) {
+        const existingProfile = await supabaseDatabase.getProfileByEmail(normalizedEmail)
+        if (existingProfile) userId = existingProfile.id
       }
 
-      const { passwordHash, salt } = await hashPassword(newPassword)
+      const { data: sessionData } = await supabase.auth.getSession()
+      const adminSession = sessionData.session
 
-      if (!user) {
-        user = await localDatabase.createUser({
+      if (!userId) {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: normalizedEmail,
-          passwordHash,
-          salt
+          password: newPassword,
+          options: {
+            data: { name: staff.name, role: 'Staff' }
+          }
         })
-        userId = user.id
 
-        const existingProfile = await localDatabase.getProfile(userId)
-        if (existingProfile) {
-          await localDatabase.updateProfile(userId, { role: 'Staff' })
-        } else {
-          await localDatabase.saveProfile({
-            id: userId,
-            name: staff.name,
-            email: normalizedEmail,
-            role: 'Staff',
-            balance: 0,
-            created_at: new Date().toISOString()
+        if (signUpError) {
+          return { error: { message: signUpError.message || 'Failed to create staff login' } }
+        }
+
+        userId = signUpData.user?.id
+        if (!userId) {
+          return { error: { message: 'Failed to create staff login account' } }
+        }
+
+        await supabaseDatabase.saveProfile({
+          id: userId,
+          name: staff.name,
+          email: normalizedEmail,
+          role: 'Staff',
+          balance: 0,
+          created_at: new Date().toISOString()
+        })
+
+        if (adminSession) {
+          await supabase.auth.setSession({
+            access_token: adminSession.access_token,
+            refresh_token: adminSession.refresh_token
           })
         }
-      } else {
-        await localDatabase.updatePassword(userId, passwordHash, salt)
-        const profile = await localDatabase.getProfile(userId)
-        if (profile && profile.role !== 'Staff') {
-          await localDatabase.updateProfile(userId, { role: 'Staff' })
+
+        if (staff.user_id !== userId) {
+          await supabaseDatabase.saveStaff({ ...staff, user_id: userId })
+        }
+
+        return { error: null, data: { email: normalizedEmail } }
+      }
+
+      await supabaseDatabase.updateProfile(userId, { role: 'Staff' })
+      if (staff.user_id !== userId) {
+        await supabaseDatabase.saveStaff({ ...staff, user_id: userId })
+      }
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail)
+      if (resetError) {
+        return { error: { message: resetError.message || 'Failed to send password reset email' } }
+      }
+
+      return {
+        error: null,
+        data: {
+          email: normalizedEmail,
+          message: 'Staff already has an account. A password reset email was sent.'
         }
       }
-
-      if (staff.user_id !== userId) {
-        await localDatabase.saveStaff({ ...staff, user_id: userId })
-      }
-
-      return { error: null, data: { email: normalizedEmail } }
     } catch (err) {
       return { error: { message: err.message || 'Failed to set staff password' } }
     }
+  },
+
+  onAuthStateChange(callback) {
+    const supabase = requireSupabase()
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      callback(session?.user ? mapAuthUser(session.user) : null)
+    })
+    return subscription
   }
 }

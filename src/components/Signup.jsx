@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import BrandText from './BrandText'
+import VpsSetupHelp, { isVpsAuthError } from './VpsSetupHelp'
 
 function Signup({ onToggle }) {
   const navigate = useNavigate()
@@ -95,7 +96,12 @@ function Signup({ onToggle }) {
             required
           />
 
-          {error && <div className="text-red-600 text-sm">{error}</div>}
+          {error && (
+            <div className="space-y-3">
+              <div className="text-red-600 text-sm">{error}</div>
+              {(isVpsAuthError(error)) && <VpsSetupHelp onSignIn={onToggle} />}
+            </div>
+          )}
           {success && (
             <div className="text-green-700 text-sm bg-green-50 border border-green-200 rounded-lg p-3">
               {success}

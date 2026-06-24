@@ -1,4 +1,4 @@
-import { localDatabase, generateId } from './localDatabase'
+import { supabaseDatabase, generateId } from './supabaseDatabase'
 
 const generateMaskedId = () =>
   '********-' + Math.random().toString(36).substring(2, 6).toUpperCase()
@@ -6,7 +6,7 @@ const generateMaskedId = () =>
 export const customerService = {
   async getAllCustomers() {
     try {
-      const data = await localDatabase.getAllCustomers()
+      const data = await supabaseDatabase.getAllCustomers()
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -15,7 +15,7 @@ export const customerService = {
 
   async getCustomerById(id) {
     try {
-      const data = await localDatabase.getCustomerById(id)
+      const data = await supabaseDatabase.getCustomerById(id)
       return data
         ? { data, error: null }
         : { data: null, error: { message: 'Customer not found' } }
@@ -26,7 +26,7 @@ export const customerService = {
 
   async searchCustomerByEmail(email) {
     try {
-      const data = await localDatabase.getCustomerByEmail(email)
+      const data = await supabaseDatabase.getCustomerByEmail(email)
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -47,7 +47,7 @@ export const customerService = {
         approved_at: customer.approved_at || null,
         created_at: new Date().toISOString()
       }
-      await localDatabase.saveCustomer(data)
+      await supabaseDatabase.saveCustomer(data)
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -56,7 +56,7 @@ export const customerService = {
 
   async approveCustomer(id, approverId) {
     try {
-      const existing = await localDatabase.getCustomerById(id)
+      const existing = await supabaseDatabase.getCustomerById(id)
       if (!existing) {
         return { data: null, error: { message: 'Customer not found' } }
       }
@@ -66,7 +66,7 @@ export const customerService = {
         approved_by: approverId,
         approved_at: new Date().toISOString()
       }
-      await localDatabase.saveCustomer(data)
+      await supabaseDatabase.saveCustomer(data)
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -75,7 +75,7 @@ export const customerService = {
 
   async rejectCustomer(id, approverId) {
     try {
-      const existing = await localDatabase.getCustomerById(id)
+      const existing = await supabaseDatabase.getCustomerById(id)
       if (!existing) {
         return { data: null, error: { message: 'Customer not found' } }
       }
@@ -85,7 +85,7 @@ export const customerService = {
         approved_by: approverId,
         approved_at: new Date().toISOString()
       }
-      await localDatabase.saveCustomer(data)
+      await supabaseDatabase.saveCustomer(data)
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -94,12 +94,12 @@ export const customerService = {
 
   async updateCustomer(id, updates) {
     try {
-      const existing = await localDatabase.getCustomerById(id)
+      const existing = await supabaseDatabase.getCustomerById(id)
       if (!existing) {
         return { data: null, error: { message: 'Customer not found' } }
       }
       const data = { ...existing, ...updates, id }
-      await localDatabase.saveCustomer(data)
+      await supabaseDatabase.saveCustomer(data)
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -108,7 +108,7 @@ export const customerService = {
 
   async deleteCustomer(id) {
     try {
-      await localDatabase.deleteCustomer(id)
+      await supabaseDatabase.deleteCustomer(id)
       return { error: null }
     } catch (error) {
       return { error }
@@ -117,7 +117,7 @@ export const customerService = {
 
   async requestApproval(customerId) {
     try {
-      const existing = await localDatabase.getCustomerById(customerId)
+      const existing = await supabaseDatabase.getCustomerById(customerId)
       if (!existing) {
         return { data: null, error: { message: 'Customer not found' } }
       }
@@ -127,7 +127,7 @@ export const customerService = {
         approved_by: null,
         approved_at: null
       }
-      await localDatabase.saveCustomer(data)
+      await supabaseDatabase.saveCustomer(data)
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -136,7 +136,7 @@ export const customerService = {
 
   async getPendingApprovals() {
     try {
-      const data = await localDatabase.getPendingCustomers()
+      const data = await supabaseDatabase.getPendingCustomers()
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
@@ -145,7 +145,7 @@ export const customerService = {
 
   async getCustomerByUserId(userId) {
     try {
-      const data = await localDatabase.getCustomerByUserId(userId)
+      const data = await supabaseDatabase.getCustomerByUserId(userId)
       return { data, error: null }
     } catch (error) {
       return { data: null, error }
