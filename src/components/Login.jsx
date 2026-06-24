@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import BrandText from './BrandText'
-import VpsSetupHelp from './VpsSetupHelp'
 
 function Login({ onToggle }) {
   const navigate = useNavigate()
@@ -93,11 +92,7 @@ function Login({ onToggle }) {
         <div className="flex justify-center mb-6">
           <BrandText size="lg" variant="light" />
         </div>
-        <p className="text-gray-500 text-sm text-center mb-4">Sign in to your account</p>
-
-        <div className="mb-4">
-          <VpsSetupHelp />
-        </div>
+        <p className="text-gray-500 text-sm text-center mb-6">Sign in to your account</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input
