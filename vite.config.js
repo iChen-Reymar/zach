@@ -22,9 +22,12 @@ function supabaseProxy(env) {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  // Electron loads dist/index.html from disk (file://) — needs relative paths.
+  // Vercel and other web hosts need absolute paths from site root.
+  const base = mode === 'electron' ? './' : '/'
 
   return {
-    base: './',
+    base,
     assetsInclude: [],
     plugins: [
       react(),
